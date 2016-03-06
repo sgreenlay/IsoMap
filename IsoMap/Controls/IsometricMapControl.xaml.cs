@@ -1,11 +1,12 @@
 ﻿
-//#define HORIZONTAL_HEXAGONS
+//#define USE_HEXAGONAL_TILES
 
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
 using Windows.Foundation;
 using Windows.UI;
@@ -45,6 +46,8 @@ namespace IsoMap.Controls
         private List<Vector2> TeamB;
         private CanvasBitmap TeamBBitmap { get; set; }
 
+        private bool AssetsLoaded;
+
         private enum Phase
         {
             Move,
@@ -57,12 +60,12 @@ namespace IsoMap.Controls
         {
             InitializeComponent();
 
-#if true
-            TileShape = MapTileShape.Square;
-            TileSize = new Size(150, 85);
-#else
+#if USE_HEXAGONAL_TILES
             TileShape = MapTileShape.Hexagon;
             TileSize = new Size(150, 125);
+#else
+            TileShape = MapTileShape.Square;
+            TileSize = new Size(150, 85);
 #endif
 
             TileOffset = new Vector2(0.0f, 0.0f);
@@ -88,12 +91,17 @@ namespace IsoMap.Controls
 
             ActiveTeam = Team.TeamA;
             ActivePhase = Phase.Move;
+
+            AssetsLoaded = false;
         }
 
         private async void LoadAssets()
         {
-            TeamABitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Rock.png");
-            TeamBBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Heart.png");
+            TeamABitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Rock.png");
+            Debug.Assert(TeamABitmap != null);
+
+            TeamBBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Heart.png");
+            Debug.Assert(TeamBBitmap != null);
         }
 
         private void OnPointerMoved(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -119,15 +127,18 @@ namespace IsoMap.Controls
 
             if (currentPoint.Properties.IsLeftButtonPressed)
             {
-                SelectedTile = null;
+                if (ActivePhase == Phase.Move)
+                {
+                    SelectedTile = null;
 
-                if (ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile))
-                {
-                    SelectedTile = selectedTile;
-                }
-                else if (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile))
-                {
-                    SelectedTile = selectedTile;
+                    if (ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile))
+                    {
+                        SelectedTile = selectedTile;
+                    }
+                    else if (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile))
+                    {
+                        SelectedTile = selectedTile;
+                    }
                 }
             }
             else if (currentPoint.Properties.IsRightButtonPressed)
@@ -164,8 +175,9 @@ namespace IsoMap.Controls
                 }
                 else if (ActivePhase == Phase.Shoot)
                 {
-                    if ((selectedTile.X == SelectedTile.Value.X) ||
-                        (selectedTile.Y == SelectedTile.Value.Y))
+                    if ((SelectedTile != null) &&
+                        ((selectedTile.X == SelectedTile.Value.X) ||
+                         (selectedTile.Y == SelectedTile.Value.Y)))
                     {
                         if (TeamA.Contains(SelectedTile.Value))
                         {
@@ -202,19 +214,19 @@ namespace IsoMap.Controls
         {
             if (e.VirtualKey == Windows.System.VirtualKey.Up)
             {
-                ScrollMap(new Vector2(0.0f, -1.0f));
+                ScrollMap(new Vector2(0.0f, -5.0f));
             }
             else if (e.VirtualKey == Windows.System.VirtualKey.Down)
             {
-                ScrollMap(new Vector2(0.0f, +1.0f));
+                ScrollMap(new Vector2(0.0f, +5.0f));
             }
             else if (e.VirtualKey == Windows.System.VirtualKey.Left)
             {
-                ScrollMap(new Vector2(-1.0f, 0.0f));
+                ScrollMap(new Vector2(+5.0f, 0.0f));
             }
             else if (e.VirtualKey == Windows.System.VirtualKey.Right)
             {
-                ScrollMap(new Vector2(+1.0f, 0.0f));
+                ScrollMap(new Vector2(-5.0f, 0.0f));
             }
 
             MapCanvas.Invalidate();
@@ -236,18 +248,6 @@ namespace IsoMap.Controls
             }
             else if (TileShape == MapTileShape.Hexagon)
             {
-#if HORIZONTAL_HEXAGONS
-                if (Math.Floor(mapCoordinates.Y) % 2.0f == 0)
-                {
-                    screenCoordinates.X = (float)(mapCoordinates.X * 1.5f * TileSize.Width);
-                }
-                else
-                {
-                    screenCoordinates.X = (float)((mapCoordinates.X + 0.5f) * 1.5f * TileSize.Width);
-                }
-                
-                screenCoordinates.Y = (float)(mapCoordinates.Y * TileSize.Height / 2.0f);
-#else
                 if (Math.Floor(mapCoordinates.Y) % 2.0f == 0)
                 {
                     screenCoordinates.X = (float)(mapCoordinates.X * TileSize.Width);
@@ -258,7 +258,6 @@ namespace IsoMap.Controls
                 }
 
                 screenCoordinates.Y = (float)(mapCoordinates.Y * TileSize.Height * 0.75);
-#endif
             }
 
             return screenCoordinates + ScreenOffset;
@@ -283,9 +282,6 @@ namespace IsoMap.Controls
 
             else if (TileShape == MapTileShape.Hexagon)
             {
-#if HORIZONTAL_HEXAGONS
-                // TODO
-#else
                 onscreenTile.Y = (float)Math.Floor(
                     (screenCoordinates.Y / (float)(TileSize.Height * 0.75)));
 
@@ -332,7 +328,6 @@ namespace IsoMap.Controls
                     onscreenTile.X = (float)Math.Floor(
                         (screenCoordinates.X / (float)(TileSize.Width)) - 0.5f);
                 }
-#endif
             }
 
             return onscreenTile + TileOffset;
@@ -348,9 +343,6 @@ namespace IsoMap.Controls
             }
             else if (TileShape == MapTileShape.Hexagon)
             {
-#if HORIZONTAL_HEXAGONS
-                // TODO
-#else
                 if (screenOffset.X / TileSize.Width >= 1.0f)
                 {
                     TileOffset = new Vector2(TileOffset.X - 1.0f, TileOffset.Y);
@@ -372,18 +364,17 @@ namespace IsoMap.Controls
                 ScreenOffset = new Vector2(
                     (float)(screenOffset.X % TileSize.Width),
                     (float)(screenOffset.Y % (TileSize.Height * 1.5f)));
-#endif
             }
         }
 
-        void ScrollMapToCenterTile(Vector2 absoluteTile)
+        void ScrollMapToCenterOnTile(Vector2 absoluteTile)
         {
             // TODO
         }
 
         void Redraw(CanvasControl canvas, CanvasDrawEventArgs args)
         {
-            if (TeamABitmap == null)
+            if (AssetsLoaded == false)
             {
                 LoadAssets();
             }
@@ -430,27 +421,6 @@ namespace IsoMap.Controls
                             (float)(topLeft.X + TileSize.Width),
                             (float)(topLeft.Y + TileSize.Height));
 
-#if HORIZONTAL_HEXAGONS
-                        path.BeginFigure(new Vector2(
-                            topLeft.X + 0.25f * (float)TileSize.Width,
-                            topLeft.Y));
-
-                        path.AddLine(new Vector2(
-                            bottomRight.X - 0.25f * (float)TileSize.Width,
-                            topLeft.Y));
-                        path.AddLine(new Vector2(
-                            bottomRight.X,
-                            topLeft.Y + 0.5f * (float)TileSize.Height));
-                        path.AddLine(new Vector2(
-                            bottomRight.X - 0.25f * (float)TileSize.Width,
-                            bottomRight.Y));
-                        path.AddLine(new Vector2(
-                            topLeft.X + 0.25f * (float)TileSize.Width,
-                            bottomRight.Y));
-                        path.AddLine(new Vector2(
-                            topLeft.X,
-                            topLeft.Y + 0.5f * (float)TileSize.Height));
-#else
                         path.BeginFigure(new Vector2(
                             topLeft.X + 0.5f * (float)TileSize.Width,
                             topLeft.Y));
@@ -470,7 +440,6 @@ namespace IsoMap.Controls
                         path.AddLine(new Vector2(
                             topLeft.X,
                             topLeft.Y + 0.25f * (float)TileSize.Height));
-#endif
 
                         path.EndFigure(CanvasFigureLoop.Closed);
                     }
@@ -503,7 +472,9 @@ namespace IsoMap.Controls
             
             foreach (var unit in TeamA)
             {
-                var pos = MapToScreen(unit + new Vector2(0.5f, 0.5f));
+                var onscreenUnit = unit - TileOffset;
+
+                var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
                 pos = pos - TeamABitmap.Size.ToVector2() / 2.0f;
 
                 pos.Y -= 40;
@@ -513,7 +484,9 @@ namespace IsoMap.Controls
 
             foreach (var unit in TeamB)
             {
-                var pos = MapToScreen(unit + new Vector2(0.5f, 0.5f));
+                var onscreenUnit = unit - TileOffset;
+
+                var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
                 pos = pos - TeamBBitmap.Size.ToVector2() / 2.0f;
 
                 pos.Y -= 25;

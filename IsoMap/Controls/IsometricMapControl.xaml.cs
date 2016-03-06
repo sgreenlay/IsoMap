@@ -266,26 +266,11 @@ namespace IsoMap.Controls
                     var terxy = WorldToTerrainXY(selectedTile);
                     if (SelectedTile != null && ValidTerrainXY(terxy) && MovableOverlay.Get(TerrainXYToIndex(terxy)))
                     {
-                        if (TeamA.Contains(SelectedTile.Value))
-                        {
-                            if (TeamB.Contains(selectedTile))
-                            {
-                                TeamB.Remove(selectedTile);
-                            }
+                        if (EnemyTeam().Contains(selectedTile))
+                            EnemyTeam().Remove(selectedTile);
 
-                            TeamA.Remove(SelectedTile.Value);
-                            TeamA.Add(selectedTile);
-                        }
-                        else if (TeamB.Contains(SelectedTile.Value))
-                        {
-                            if (TeamA.Contains(selectedTile))
-                            {
-                                TeamA.Remove(selectedTile);
-                            }
-
-                            TeamB.Remove(SelectedTile.Value);
-                            TeamB.Add(selectedTile);
-                        }
+                        CurrentTeam().Remove(SelectedTile.Value);
+                        CurrentTeam().Add(selectedTile);
 
                         ActivePhase = Phase.Shoot;
 
@@ -298,24 +283,13 @@ namespace IsoMap.Controls
                         ((selectedTile.X == SelectedTile.Value.X) ||
                          (selectedTile.Y == SelectedTile.Value.Y)))
                     {
-                        if (TeamA.Contains(SelectedTile.Value))
-                        {
-                            if (TeamB.Contains(selectedTile))
-                            {
-                                TeamB.Remove(selectedTile);
-                            }
+                        if (EnemyTeam().Contains(selectedTile))
+                            EnemyTeam().Remove(selectedTile);
 
+                        if (ActiveTeam == Team.TeamA)
                             ActiveTeam = Team.TeamB;
-                        }
-                        else if (TeamB.Contains(SelectedTile.Value))
-                        {
-                            if (TeamA.Contains(selectedTile))
-                            {
-                                TeamA.Remove(selectedTile);
-                            }
-
+                        else
                             ActiveTeam = Team.TeamA;
-                        }
 
                         ActivePhase = Phase.Move;
 

@@ -42,10 +42,29 @@ namespace IsoMap.Controls
 
         private Team ActiveTeam;
 
-        private List<Vector2> TeamA;
+        private class Units
+        {
+            public List<Vector2> Locations = new List<Vector2>();
+
+            internal bool Contains(Vector2 pos)
+            {
+                return Locations.Contains(pos);
+            }
+
+            internal void Add(Vector2 pos)
+            {
+                Locations.Add(pos);
+            }
+
+            internal void Remove(Vector2 selectedTile)
+            {
+                Locations.Remove(selectedTile);
+            }
+        };
+        private Units TeamA = new Units();
         private CanvasBitmap TeamABitmap { get; set; }
 
-        private List<Vector2> TeamB;
+        private Units TeamB = new Units();
         private CanvasBitmap TeamBBitmap { get; set; }
 
         private Task LoadingAssetsTask;
@@ -144,7 +163,6 @@ namespace IsoMap.Controls
                 }
             }
 
-            TeamA = new List<Vector2>();
             for (var x = 0; x < 5; ++x)
             {
                 var tpos = new IntVector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
@@ -156,7 +174,6 @@ namespace IsoMap.Controls
                 TeamA.Add(pos);
             }
 
-            TeamB = new List<Vector2>();
             for (var x = 0; x < 5; ++x)
             {
                 var tpos = new IntVector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
@@ -201,12 +218,12 @@ namespace IsoMap.Controls
             SelectedTile = null;
             MovableOverlay.SetAll(false);
         }
-        private List<Vector2> CurrentTeam()
+        private Units CurrentTeam()
         {
             if (ActiveTeam == Team.TeamA) return TeamA;
             else return TeamB;
         }
-        private List<Vector2> EnemyTeam()
+        private Units EnemyTeam()
         {
             if (ActiveTeam == Team.TeamA) return TeamB;
             else return TeamA;
@@ -663,7 +680,7 @@ namespace IsoMap.Controls
                 }
             }
             
-            foreach (var unit in TeamA)
+            foreach (var unit in TeamA.Locations)
             {
                 var onscreenUnit = unit - TileOffset;
 
@@ -675,7 +692,7 @@ namespace IsoMap.Controls
                 args.DrawingSession.DrawImage(TeamABitmap, pos);
             }
 
-            foreach (var unit in TeamB)
+            foreach (var unit in TeamB.Locations)
             {
                 var onscreenUnit = unit - TileOffset;
 

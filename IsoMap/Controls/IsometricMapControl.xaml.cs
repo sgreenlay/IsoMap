@@ -173,33 +173,20 @@ namespace IsoMap.Controls
                     SelectedTile = null;
                     MovableOverlay.SetAll(false);
 
-                    if (ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile))
+                    if ((ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile)) ||
+                        (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile)))
                     {
                         SelectedTile = selectedTile;
                         var tpos = WorldToTerrainXY(selectedTile);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y - 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y - 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y - 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y + 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y + 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y + 1), true);
-                    }
-                    else if (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile))
-                    {
-                        SelectedTile = selectedTile;
-                        var tpos = WorldToTerrainXY(selectedTile);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y - 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y - 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y - 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y + 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y + 1), true);
-                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y + 1), true);
+                        for (var y = -1; y < 2; ++y)
+                        {
+                            for (var x = -1; x < 2; ++x)
+                            {
+                                var tpos2 = tpos + new IntVector2(x, y);
+                                if (ValidTerrainXY(tpos2))
+                                    MovableOverlay.Set(TerrainXYToIndex(tpos2), true);
+                            }
+                        }
                     }
                 }
             }

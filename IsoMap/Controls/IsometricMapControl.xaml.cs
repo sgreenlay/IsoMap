@@ -217,9 +217,15 @@ namespace IsoMap.Controls
                             for (var x = -1; x < 2; ++x)
                             {
                                 var tpos2 = tpos + new IntVector2(x, y);
+                                if (!ValidTerrainXY(tpos2))
+                                    continue;
+                                var ttype = Terrain[TerrainXYToIndex(tpos2)];
+                                if (ttype == TerrainType.Solid || ttype == TerrainType.Transparent)
+                                    continue;
                                 var wpos2 = TerrainXYToWorld(tpos2);
-                                if (ValidTerrainXY(tpos2) && !TeamA.Contains(wpos2) && !TeamB.Contains(wpos2))
-                                    MovableOverlay.Set(TerrainXYToIndex(tpos2), true);
+                                if (TeamA.Contains(wpos2) || TeamB.Contains(wpos2))
+                                    continue;
+                                MovableOverlay.Set(TerrainXYToIndex(tpos2), true);
                             }
                         }
                     }
@@ -584,7 +590,21 @@ namespace IsoMap.Controls
                     }
                     else
                     {
-                        args.DrawingSession.FillGeometry(geometry, Colors.White);
+                        switch (Terrain[TerrainXYToIndex(terrainxy)])
+                        {
+                            case TerrainType.Empty:
+                                args.DrawingSession.FillGeometry(geometry, Colors.Khaki);
+                                break;
+                            case TerrainType.Soft:
+                                args.DrawingSession.FillGeometry(geometry, Colors.WhiteSmoke);
+                                break;
+                            case TerrainType.Solid:
+                                args.DrawingSession.FillGeometry(geometry, Colors.Gray);
+                                break;
+                            case TerrainType.Transparent:
+                                args.DrawingSession.FillGeometry(geometry, Colors.Blue);
+                                break;
+                        }
                         args.DrawingSession.DrawGeometry(geometry, Colors.Black);
                     }
                 }

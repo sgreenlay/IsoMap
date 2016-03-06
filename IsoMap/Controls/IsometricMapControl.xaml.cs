@@ -71,7 +71,15 @@ namespace IsoMap.Controls
         }
         private IntVector2 TerrainSize = new IntVector2(9, 7);
         private Vector2 TerrainTopLeft = new Vector2(4.0f, -3.0f);
-        private List<Color> Terrain;
+
+        private enum TerrainType
+        {
+            Empty,
+            Solid,
+            Transparent,
+            Soft
+        };
+        private List<TerrainType> Terrain;
         private BitArray MovableOverlay;
         private int TerrainXYToIndex(IntVector2 v)
         {
@@ -114,10 +122,31 @@ namespace IsoMap.Controls
 
             CoreWindow.GetForCurrentThread().KeyDown += OnKeyDown;
 
+            Terrain = new List<TerrainType>();
+            MovableOverlay = new BitArray(TerrainSize.X * TerrainSize.Y);
+            for (var y = 0; y < TerrainSize.Y; ++y)
+            {
+                for (var x = 0; x < TerrainSize.X; ++x)
+                {
+                    var r = Rand.NextDouble();
+                    if (r < 0.85)
+                        Terrain.Add(TerrainType.Empty);
+                    else if (r < 0.90)
+                        Terrain.Add(TerrainType.Soft);
+                    else if (r < 0.95)
+                        Terrain.Add(TerrainType.Solid);
+                    else
+                        Terrain.Add(TerrainType.Transparent);
+                }
+            }
+
             TeamA = new List<Vector2>();
             for (var x = 0; x < 5; ++x)
             {
-                var pos = TerrainTopLeft + new Vector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
+                var tpos = new IntVector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
+                if (Terrain[TerrainXYToIndex(tpos)] != TerrainType.Empty)
+                    continue;
+                var pos = TerrainXYToWorld(tpos);
                 if (TeamA.Contains(pos))
                     continue;
                 TeamA.Add(pos);
@@ -126,24 +155,19 @@ namespace IsoMap.Controls
             TeamB = new List<Vector2>();
             for (var x = 0; x < 5; ++x)
             {
-                var pos = TerrainTopLeft + new Vector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
-                if (TeamA.Contains(pos) || TeamB.Contains(pos))
+                var tpos = new IntVector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
+                if (Terrain[TerrainXYToIndex(tpos)] != TerrainType.Empty)
+                    continue;
+                var pos = TerrainXYToWorld(tpos);
+                if (TeamA.Contains(pos))
+                    continue;
+                if (TeamB.Contains(pos))
                     continue;
                 TeamB.Add(pos);
             }
 
             ActiveTeam = Team.TeamA;
             ActivePhase = Phase.Move;
-
-            Terrain = new List<Color>();
-            MovableOverlay = new BitArray(TerrainSize.X * TerrainSize.Y);
-            for (var y = 0; y < TerrainSize.Y; ++y)
-            {
-                for (var x = 0; x < TerrainSize.X; ++x)
-                {
-                    Terrain.Add(Colors.Honeydew);
-                }
-            }
         }
 
         private async Task LoadAssets()

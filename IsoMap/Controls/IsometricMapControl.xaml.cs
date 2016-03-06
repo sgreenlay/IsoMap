@@ -305,11 +305,11 @@ namespace IsoMap.Controls
         {
             if (e.VirtualKey == Windows.System.VirtualKey.Up)
             {
-                ScrollMap(new Vector2(0.0f, -5.0f));
+                ScrollMap(new Vector2(0.0f, +5.0f));
             }
             else if (e.VirtualKey == Windows.System.VirtualKey.Down)
             {
-                ScrollMap(new Vector2(0.0f, +5.0f));
+                ScrollMap(new Vector2(0.0f, -5.0f));
             }
             else if (e.VirtualKey == Windows.System.VirtualKey.Left)
             {

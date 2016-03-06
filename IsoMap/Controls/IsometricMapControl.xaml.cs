@@ -8,6 +8,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Numerics;
 using System.Threading.Tasks;
 using Windows.Foundation;
@@ -47,15 +48,37 @@ namespace IsoMap.Controls
             public List<Vector2> Locations = new List<Vector2>();
             public List<string> Names = new List<string>();
 
+            private static List<string> Syllables = new List<string>(){
+                "ka","sa","ta","na","ha","ma","ya","ra","wa",
+                "ke","se","te","ne","he","me",/* */"re","we",
+                "ki","si","chi","ni","hi","mi",/* */"ri","wi",
+                "ko","so","to","no","ho","mo","yo","ro","wo",
+                "ku","su","tsu","nu","hu","mu","yu","ru",
+            };
+            private static Random rand = new Random();
+            private static string randSyl()
+            {
+                return Syllables[rand.Next(Syllables.Count)];
+            }
+
             internal bool Contains(Vector2 pos)
             {
                 return Locations.Contains(pos);
             }
 
+            internal static string randName()
+            {
+                string name = randSyl();
+                while (rand.NextDouble() > 0.20)
+                    name += randSyl();
+                name = char.ToUpper(name[0]) + name.Substring(1);
+                return name;
+            }
+
             internal void Add(Vector2 pos)
             {
                 Locations.Add(pos);
-                Names.Add("unnamed");
+                Names.Add(randName());
             }
 
             internal void Remove(Vector2 selectedTile)
@@ -698,9 +721,19 @@ namespace IsoMap.Controls
                     var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
                     pos = pos - team.Bitmap.Size.ToVector2() / 2.0f;
 
-                    pos.Y += team.offset;
+                    var bpos = pos;
+                    bpos.Y += team.offset;
 
-                    args.DrawingSession.DrawImage(team.Bitmap, pos);
+                    args.DrawingSession.DrawImage(team.Bitmap, bpos);
+                }
+                for (var i = 0; i < team.Count; ++i)
+                {
+                    var unit = team.Locations[i];
+                    var onscreenUnit = unit - TileOffset;
+
+                    var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
+                    pos += new Vector2(-20, -80);
+                    args.DrawingSession.DrawText(team.Names[i], pos, Colors.Black);
                 }
             };
             func(TeamA);

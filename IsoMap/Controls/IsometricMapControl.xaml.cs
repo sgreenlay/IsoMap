@@ -1,9 +1,11 @@
 ﻿
 //#define HORIZONTAL_HEXAGONS
 
+using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using Windows.Foundation;
 using Windows.UI;
@@ -24,15 +26,38 @@ namespace IsoMap.Controls
         public Size TileSize { get; set; }
 
         private Vector2 HighlightedTile { get; set; }
+        private Vector2? SelectedTile { get; set; }
 
         private Vector2 ScreenOffset { get; set; }
         private Vector2 TileOffset { get; set; }
+
+        private enum Team
+        {
+            TeamA,
+            TeamB
+        };
+
+        private Team ActiveTeam;
+
+        private List<Vector2> TeamA;
+        private CanvasBitmap TeamABitmap { get; set; }
+
+        private List<Vector2> TeamB;
+        private CanvasBitmap TeamBBitmap { get; set; }
+
+        private enum Phase
+        {
+            Move,
+            Shoot
+        };
+
+        private Phase ActivePhase;
 
         public IsometricMapControl()
         {
             InitializeComponent();
 
-#if false
+#if true
             TileShape = MapTileShape.Square;
             TileSize = new Size(150, 85);
 #else
@@ -42,9 +67,33 @@ namespace IsoMap.Controls
 
             TileOffset = new Vector2(0.0f, 0.0f);
             ScreenOffset = new Vector2(0.0f, 0.0f);
-
+            
             MapCanvas.PointerMoved += OnPointerMoved;
+            MapCanvas.PointerPressed += OnPointerPressed;
+
             CoreWindow.GetForCurrentThread().KeyDown += OnKeyDown;
+
+            TeamA = new List<Vector2>();
+            TeamA.Add(new Vector2(5.0f, 0.0f));
+            TeamA.Add(new Vector2(6.0f, 0.0f));
+            TeamA.Add(new Vector2(5.0f, 1.0f));
+            TeamA.Add(new Vector2(5.0f, 2.0f));
+            TeamA.Add(new Vector2(6.0f, 3.0f));
+
+            TeamB = new List<Vector2>();
+            TeamB.Add(new Vector2(9.0f, -1.0f));
+            TeamB.Add(new Vector2(9.0f, 0.0f));
+            TeamB.Add(new Vector2(10.0f, 1.0f));
+            TeamB.Add(new Vector2(10.0f, -1.0f));
+
+            ActiveTeam = Team.TeamA;
+            ActivePhase = Phase.Move;
+        }
+
+        private async void LoadAssets()
+        {
+            TeamABitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Rock.png");
+            TeamBBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Heart.png");
         }
 
         private void OnPointerMoved(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -54,6 +103,95 @@ namespace IsoMap.Controls
             HighlightedTile = ScreenToMap(
                 new Vector2((float)currentPoint.Position.X,
                             (float)currentPoint.Position.Y));
+
+            MapCanvas.Invalidate();
+
+            e.Handled = true;
+        }
+
+        private void OnPointerPressed(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            var currentPoint = e.GetCurrentPoint(MapCanvas);
+
+            var selectedTile = ScreenToMap(
+                new Vector2((float)currentPoint.Position.X,
+                            (float)currentPoint.Position.Y));
+
+            if (currentPoint.Properties.IsLeftButtonPressed)
+            {
+                SelectedTile = null;
+
+                if (ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile))
+                {
+                    SelectedTile = selectedTile;
+                }
+                else if (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile))
+                {
+                    SelectedTile = selectedTile;
+                }
+            }
+            else if (currentPoint.Properties.IsRightButtonPressed)
+            {
+                if (ActivePhase == Phase.Move)
+                {
+                    if (SelectedTile != null && Vector2.Distance(SelectedTile.Value, selectedTile) <= 1.44f)
+                    {
+                        if (TeamA.Contains(SelectedTile.Value))
+                        {
+                            if (TeamB.Contains(selectedTile))
+                            {
+                                TeamB.Remove(selectedTile);
+                            }
+
+                            TeamA.Remove(SelectedTile.Value);
+                            TeamA.Add(selectedTile);
+                        }
+                        else if (TeamB.Contains(SelectedTile.Value))
+                        {
+                            if (TeamA.Contains(selectedTile))
+                            {
+                                TeamA.Remove(selectedTile);
+                            }
+
+                            TeamB.Remove(SelectedTile.Value);
+                            TeamB.Add(selectedTile);
+                        }
+
+                        ActivePhase = Phase.Shoot;
+
+                        SelectedTile = selectedTile;
+                    }
+                }
+                else if (ActivePhase == Phase.Shoot)
+                {
+                    if ((selectedTile.X == SelectedTile.Value.X) ||
+                        (selectedTile.Y == SelectedTile.Value.Y))
+                    {
+                        if (TeamA.Contains(SelectedTile.Value))
+                        {
+                            if (TeamB.Contains(selectedTile))
+                            {
+                                TeamB.Remove(selectedTile);
+                            }
+
+                            ActiveTeam = Team.TeamB;
+                        }
+                        else if (TeamB.Contains(SelectedTile.Value))
+                        {
+                            if (TeamA.Contains(selectedTile))
+                            {
+                                TeamA.Remove(selectedTile);
+                            }
+
+                            ActiveTeam = Team.TeamA;
+                        }
+
+                        ActivePhase = Phase.Move;
+
+                        SelectedTile = null;
+                    }
+                }
+            }
 
             MapCanvas.Invalidate();
 
@@ -245,6 +383,11 @@ namespace IsoMap.Controls
 
         void Redraw(CanvasControl canvas, CanvasDrawEventArgs args)
         {
+            if (TeamABitmap == null)
+            {
+                LoadAssets();
+            }
+
             for (int y = -2; y <= (int)Math.Ceiling(canvas.ActualHeight / TileSize.Height * 2) + 1; ++y)
             {
                 for (int x = -2; x <= (int)Math.Ceiling(canvas.ActualWidth / TileSize.Width) + 1; ++x)
@@ -335,7 +478,17 @@ namespace IsoMap.Controls
                     var tile = onscreenTile + TileOffset;
                     var geometry = CanvasGeometry.CreatePath(path);
 
-                    if (tile == HighlightedTile)
+                    if (tile == HighlightedTile && HighlightedTile == SelectedTile)
+                    {
+                        args.DrawingSession.FillGeometry(geometry, Colors.Red);
+                        args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));
+                    }
+                    else if (tile == SelectedTile)
+                    {
+                        args.DrawingSession.FillGeometry(geometry, Colors.DarkRed);
+                        args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));
+                    }
+                    else if (tile == HighlightedTile)
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.CornflowerBlue);
                         args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));
@@ -346,6 +499,26 @@ namespace IsoMap.Controls
                         args.DrawingSession.DrawGeometry(geometry, Colors.Black);
                     }
                 }
+            }
+            
+            foreach (var unit in TeamA)
+            {
+                var pos = MapToScreen(unit + new Vector2(0.5f, 0.5f));
+                pos = pos - TeamABitmap.Size.ToVector2() / 2.0f;
+
+                pos.Y -= 40;
+
+                args.DrawingSession.DrawImage(TeamABitmap, pos);
+            }
+
+            foreach (var unit in TeamB)
+            {
+                var pos = MapToScreen(unit + new Vector2(0.5f, 0.5f));
+                pos = pos - TeamBBitmap.Size.ToVector2() / 2.0f;
+
+                pos.Y -= 25;
+
+                args.DrawingSession.DrawImage(TeamBBitmap, pos);
             }
         }
     }

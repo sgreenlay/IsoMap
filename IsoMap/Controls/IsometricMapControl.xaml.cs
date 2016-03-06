@@ -304,8 +304,7 @@ namespace IsoMap.Controls
                 {
                     ClearSelection();
 
-                    if ((ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile)) ||
-                        (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile)))
+                    if (CurrentTeam().Contains(selectedTile))
                     {
                         SetSelection(selectedTile);
                     }
@@ -331,9 +330,9 @@ namespace IsoMap.Controls
                 }
                 else if (ActivePhase == Phase.Shoot)
                 {
-                    if ((SelectedTile != null) &&
-                        ((selectedTile.X == SelectedTile.Value.X) ||
-                         (selectedTile.Y == SelectedTile.Value.Y)))
+                    Debug.Assert(SelectedTile != null);
+                    var terxy = WorldToTerrainXY(selectedTile);
+                    if (ValidTerrainXY(terxy) && MovableOverlay.Get(TerrainXYToIndex(terxy)))
                     {
                         if (EnemyTeam().Contains(selectedTile))
                             EnemyTeam().Remove(selectedTile);

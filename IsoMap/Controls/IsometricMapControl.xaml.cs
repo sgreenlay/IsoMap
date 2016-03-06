@@ -192,6 +192,52 @@ namespace IsoMap.Controls
             e.Handled = true;
         }
 
+        private void ClearSelection()
+        {
+            SelectedTile = null;
+            MovableOverlay.SetAll(false);
+        }
+        private List<Vector2> CurrentTeam()
+        {
+            if (ActiveTeam == Team.TeamA) return TeamA;
+            else return TeamB;
+        }
+        private List<Vector2> EnemyTeam()
+        {
+            if (ActiveTeam == Team.TeamA) return TeamB;
+            else return TeamA;
+        }
+
+        private void SetSelection(Vector2 sel)
+        {
+            SelectedTile = sel;
+            MovableOverlay.SetAll(false);
+            if (ActivePhase == Phase.Move)
+            {
+                var tpos = WorldToTerrainXY(sel);
+                for (var y = -1; y < 2; ++y)
+                {
+                    for (var x = -1; x < 2; ++x)
+                    {
+                        var tpos2 = tpos + new IntVector2(x, y);
+                        if (!ValidTerrainXY(tpos2))
+                            continue;
+                        var ttype = Terrain[TerrainXYToIndex(tpos2)];
+                        if (ttype == TerrainType.Solid || ttype == TerrainType.Transparent)
+                            continue;
+                        var wpos2 = TerrainXYToWorld(tpos2);
+                        if (CurrentTeam().Contains(wpos2))
+                            continue;
+                        MovableOverlay.Set(TerrainXYToIndex(tpos2), true);
+                    }
+                }
+            }
+            else if (ActivePhase == Phase.Shoot)
+            {
+                // TODO
+            }
+        }
+
         private void OnPointerPressed(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
             var currentPoint = e.GetCurrentPoint(MapCanvas);
@@ -204,30 +250,12 @@ namespace IsoMap.Controls
             {
                 if (ActivePhase == Phase.Move)
                 {
-                    SelectedTile = null;
-                    MovableOverlay.SetAll(false);
+                    ClearSelection();
 
                     if ((ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile)) ||
                         (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile)))
                     {
-                        SelectedTile = selectedTile;
-                        var tpos = WorldToTerrainXY(selectedTile);
-                        for (var y = -1; y < 2; ++y)
-                        {
-                            for (var x = -1; x < 2; ++x)
-                            {
-                                var tpos2 = tpos + new IntVector2(x, y);
-                                if (!ValidTerrainXY(tpos2))
-                                    continue;
-                                var ttype = Terrain[TerrainXYToIndex(tpos2)];
-                                if (ttype == TerrainType.Solid || ttype == TerrainType.Transparent)
-                                    continue;
-                                var wpos2 = TerrainXYToWorld(tpos2);
-                                if (TeamA.Contains(wpos2) || TeamB.Contains(wpos2))
-                                    continue;
-                                MovableOverlay.Set(TerrainXYToIndex(tpos2), true);
-                            }
-                        }
+                        SetSelection(selectedTile);
                     }
                 }
             }
@@ -261,7 +289,7 @@ namespace IsoMap.Controls
 
                         ActivePhase = Phase.Shoot;
 
-                        SelectedTile = selectedTile;
+                        SetSelection(selectedTile);
                     }
                 }
                 else if (ActivePhase == Phase.Shoot)
@@ -291,7 +319,7 @@ namespace IsoMap.Controls
 
                         ActivePhase = Phase.Move;
 
-                        SelectedTile = null;
+                        ClearSelection();
                     }
                 }
             }

@@ -5,6 +5,7 @@ using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Geometry;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
@@ -57,6 +58,37 @@ namespace IsoMap.Controls
 
         private Phase ActivePhase;
 
+        private struct IntVector2
+        {
+            public IntVector2(int x, int y) { X = x; Y = y; }
+            public int X, Y;
+
+            public static IntVector2 operator +(IntVector2 a, IntVector2 b)
+            {
+                return new IntVector2(a.X + b.X, a.Y + b.Y);
+            }
+        }
+        private IntVector2 TerrainSize = new IntVector2(15, 10);
+        private Vector2 TerrainTopLeft = new Vector2(-3.0f, -3.0f);
+        private List<Color> Terrain;
+        private BitArray MovableOverlay;
+        private int TerrainXYToIndex(IntVector2 v)
+        {
+            return TerrainXYToIndex(v.X, v.Y);
+        }
+        private int TerrainXYToIndex(int x, int y)
+        {
+            Debug.Assert(ValidTerrainXY(x, y));
+            return x + y * TerrainSize.X;
+        }
+        private IntVector2 WorldToTerrainXY(Vector2 pos)
+        {
+            var pos2 = pos - TerrainTopLeft;
+            return new IntVector2((int)pos2.X, (int)pos2.Y);
+        }
+        private bool ValidTerrainXY(IntVector2 v) { return ValidTerrainXY(v.X, v.Y); }
+        private bool ValidTerrainXY(int x, int y) { return (x >= 0 && x < TerrainSize.X) && (y >= 0 && y < TerrainSize.Y); }
+
         public IsometricMapControl()
         {
             InitializeComponent();
@@ -92,6 +124,16 @@ namespace IsoMap.Controls
 
             ActiveTeam = Team.TeamA;
             ActivePhase = Phase.Move;
+
+            Terrain = new List<Color>();
+            MovableOverlay = new BitArray(TerrainSize.X * TerrainSize.Y);
+            for (var y = 0; y < TerrainSize.Y; ++y)
+            {
+                for (var x = 0; x < TerrainSize.X; ++x)
+                {
+                    Terrain.Add(Colors.Honeydew);
+                }
+            }
         }
 
         private async Task LoadAssets()
@@ -128,17 +170,38 @@ namespace IsoMap.Controls
             {
                 if (ActivePhase == Phase.Move)
                 {
-                SelectedTile = null;
+                    SelectedTile = null;
+                    MovableOverlay.SetAll(false);
 
-                if (ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile))
-                {
-                    SelectedTile = selectedTile;
+                    if (ActiveTeam == Team.TeamA && TeamA.Contains(selectedTile))
+                    {
+                        SelectedTile = selectedTile;
+                        var tpos = WorldToTerrainXY(selectedTile);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y - 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y - 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y - 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y + 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y + 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y + 1), true);
+                    }
+                    else if (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile))
+                    {
+                        SelectedTile = selectedTile;
+                        var tpos = WorldToTerrainXY(selectedTile);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y - 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y - 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y - 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X - 1, tpos.Y + 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 0, tpos.Y + 1), true);
+                        MovableOverlay.Set(TerrainXYToIndex(tpos.X + 1, tpos.Y + 1), true);
+                    }
                 }
-                else if (ActiveTeam == Team.TeamB && TeamB.Contains(selectedTile))
-                {
-                    SelectedTile = selectedTile;
-                }
-            }
             }
             else if (currentPoint.Properties.IsRightButtonPressed)
             {
@@ -449,6 +512,8 @@ namespace IsoMap.Controls
                     var tile = onscreenTile + TileOffset;
                     var geometry = CanvasGeometry.CreatePath(path);
 
+                    var terrainxy = WorldToTerrainXY(tile);
+
                     if (tile == HighlightedTile && HighlightedTile == SelectedTile)
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.Red);
@@ -463,6 +528,11 @@ namespace IsoMap.Controls
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.CornflowerBlue);
                         args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));
+                    }
+                    else if (SelectedTile != null && ActivePhase == Phase.Move && ValidTerrainXY(terrainxy) && MovableOverlay.Get(TerrainXYToIndex(terrainxy)))
+                    {
+                        args.DrawingSession.FillGeometry(geometry, Colors.GreenYellow);
+                        args.DrawingSession.DrawGeometry(geometry, Colors.Black);
                     }
                     else
                     {

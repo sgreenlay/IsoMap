@@ -7,6 +7,7 @@ using Microsoft.Graphics.Canvas.UI.Xaml;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
+using System.Threading.Tasks;
 using Windows.Foundation;
 using Windows.UI;
 using Windows.UI.Core;
@@ -44,6 +45,8 @@ namespace IsoMap.Controls
 
         private List<Vector2> TeamB;
         private CanvasBitmap TeamBBitmap { get; set; }
+
+        private Task LoadingAssetsTask;
 
         private enum Phase
         {
@@ -90,7 +93,7 @@ namespace IsoMap.Controls
             ActivePhase = Phase.Move;
         }
 
-        private async void LoadAssets()
+        private async Task LoadAssets()
         {
             TeamABitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Rock.png");
             TeamBBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Heart.png");
@@ -383,9 +386,12 @@ namespace IsoMap.Controls
 
         void Redraw(CanvasControl canvas, CanvasDrawEventArgs args)
         {
-            if (TeamABitmap == null)
+            if (LoadingAssetsTask == null) LoadingAssetsTask = LoadAssets();
+
+            if (!LoadingAssetsTask.IsCompleted) return;
+            if (LoadingAssetsTask.IsFaulted)
             {
-                LoadAssets();
+                throw LoadingAssetsTask.Exception;
             }
 
             for (int y = -2; y <= (int)Math.Ceiling(canvas.ActualHeight / TileSize.Height * 2) + 1; ++y)

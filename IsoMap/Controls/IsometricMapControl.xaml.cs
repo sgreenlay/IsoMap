@@ -388,7 +388,27 @@ namespace IsoMap.Controls
 
             if (TileShape == MapTileShape.Square)
             {
-                // TODO
+                if (screenOffset.X / TileSize.Width >= 1.0f)
+                {
+                    TileOffset = new Vector2(TileOffset.X - 1.0f, TileOffset.Y + 1.0f);
+                }
+                else if (screenOffset.X / TileSize.Width <= -1.0f)
+                {
+                    TileOffset = new Vector2(TileOffset.X + 1.0f, TileOffset.Y - 1.0f);
+                }
+
+                if (screenOffset.Y / TileSize.Height >= 1.0f)
+                {
+                    TileOffset = new Vector2(TileOffset.X - 1.0f, TileOffset.Y - 1.0f);
+                }
+                else if (screenOffset.Y / TileSize.Height <= -1.0f)
+                {
+                    TileOffset = new Vector2(TileOffset.X + 1.0f, TileOffset.Y + 1.0f);
+                }
+
+                ScreenOffset = new Vector2(
+                    (float)(screenOffset.X % TileSize.Width),
+                    (float)(screenOffset.Y % TileSize.Height));
             }
             else if (TileShape == MapTileShape.Hexagon)
             {
@@ -431,9 +451,9 @@ namespace IsoMap.Controls
                 throw LoadingAssetsTask.Exception;
             }
 
-            for (int y = -2; y <= (int)Math.Ceiling(canvas.ActualHeight / TileSize.Height * 2) + 1; ++y)
+            for (int y = -3; y <= (int)Math.Ceiling(canvas.ActualHeight / TileSize.Height * 2) + 1; ++y)
             {
-                for (int x = -2; x <= (int)Math.Ceiling(canvas.ActualWidth / TileSize.Width) + 1; ++x)
+                for (int x = -3; x <= (int)Math.Ceiling(canvas.ActualWidth / TileSize.Width) + 1; ++x)
                 {
                     Vector2 onscreenTile = new Vector2(0.0f, 0.0f);
 

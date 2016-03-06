@@ -49,6 +49,7 @@ namespace IsoMap.Controls
         private CanvasBitmap TeamBBitmap { get; set; }
 
         private Task LoadingAssetsTask;
+        private Random Rand = new Random();
 
         private enum Phase
         {
@@ -68,8 +69,8 @@ namespace IsoMap.Controls
                 return new IntVector2(a.X + b.X, a.Y + b.Y);
             }
         }
-        private IntVector2 TerrainSize = new IntVector2(15, 10);
-        private Vector2 TerrainTopLeft = new Vector2(-3.0f, -3.0f);
+        private IntVector2 TerrainSize = new IntVector2(10, 7);
+        private Vector2 TerrainTopLeft = new Vector2(3.0f, -4.0f);
         private List<Color> Terrain;
         private BitArray MovableOverlay;
         private int TerrainXYToIndex(IntVector2 v)
@@ -110,17 +111,16 @@ namespace IsoMap.Controls
             CoreWindow.GetForCurrentThread().KeyDown += OnKeyDown;
 
             TeamA = new List<Vector2>();
-            TeamA.Add(new Vector2(5.0f, 0.0f));
-            TeamA.Add(new Vector2(6.0f, 0.0f));
-            TeamA.Add(new Vector2(5.0f, 1.0f));
-            TeamA.Add(new Vector2(5.0f, 2.0f));
-            TeamA.Add(new Vector2(6.0f, 3.0f));
+            for (var x = 0; x < 5; ++x)
+            {
+                TeamA.Add(TerrainTopLeft + new Vector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y)));
+            }
 
             TeamB = new List<Vector2>();
-            TeamB.Add(new Vector2(9.0f, -1.0f));
-            TeamB.Add(new Vector2(9.0f, 0.0f));
-            TeamB.Add(new Vector2(10.0f, 1.0f));
-            TeamB.Add(new Vector2(10.0f, -1.0f));
+            for (var x = 0; x < 5; ++x)
+            {
+                TeamB.Add(TerrainTopLeft + new Vector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y)));
+            }
 
             ActiveTeam = Team.TeamA;
             ActivePhase = Phase.Move;
@@ -529,7 +529,12 @@ namespace IsoMap.Controls
                         args.DrawingSession.FillGeometry(geometry, Colors.CornflowerBlue);
                         args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));
                     }
-                    else if (SelectedTile != null && ActivePhase == Phase.Move && ValidTerrainXY(terrainxy) && MovableOverlay.Get(TerrainXYToIndex(terrainxy)))
+                    else if (!ValidTerrainXY(terrainxy))
+                    {
+                        args.DrawingSession.FillGeometry(geometry, Colors.DarkSlateGray);
+                        args.DrawingSession.DrawGeometry(geometry, Colors.Black);
+                    }
+                    else if (SelectedTile != null && ActivePhase == Phase.Move && MovableOverlay.Get(TerrainXYToIndex(terrainxy)))
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.GreenYellow);
                         args.DrawingSession.DrawGeometry(geometry, Colors.Black);

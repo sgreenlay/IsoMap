@@ -69,8 +69,8 @@ namespace IsoMap.Controls
                 return new IntVector2(a.X + b.X, a.Y + b.Y);
             }
         }
-        private IntVector2 TerrainSize = new IntVector2(10, 7);
-        private Vector2 TerrainTopLeft = new Vector2(3.0f, -4.0f);
+        private IntVector2 TerrainSize = new IntVector2(9, 7);
+        private Vector2 TerrainTopLeft = new Vector2(4.0f, -3.0f);
         private List<Color> Terrain;
         private BitArray MovableOverlay;
         private int TerrainXYToIndex(IntVector2 v)
@@ -117,13 +117,19 @@ namespace IsoMap.Controls
             TeamA = new List<Vector2>();
             for (var x = 0; x < 5; ++x)
             {
-                TeamA.Add(TerrainTopLeft + new Vector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y)));
+                var pos = TerrainTopLeft + new Vector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
+                if (TeamA.Contains(pos))
+                    continue;
+                TeamA.Add(pos);
             }
 
             TeamB = new List<Vector2>();
             for (var x = 0; x < 5; ++x)
             {
-                TeamB.Add(TerrainTopLeft + new Vector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y)));
+                var pos = TerrainTopLeft + new Vector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
+                if (TeamA.Contains(pos) || TeamB.Contains(pos))
+                    continue;
+                TeamB.Add(pos);
             }
 
             ActiveTeam = Team.TeamA;

@@ -93,6 +93,14 @@ namespace IsoMap.Controls
             internal int offset;
 
             internal int Count { get { return Locations.Count; } }
+
+            internal void Move(Vector2 value, Vector2 selectedTile)
+            {
+                var idx = Locations.IndexOf(value);
+                if (idx == -1)
+                    throw new ArgumentException();
+                Locations[idx] = selectedTile;
+            }
         };
 
         private Units TeamA = new Units();
@@ -370,8 +378,7 @@ namespace IsoMap.Controls
                         if (EnemyTeam().Contains(selectedTile))
                             EnemyTeam().Remove(selectedTile);
 
-                        CurrentTeam().Remove(SelectedTile.Value);
-                        CurrentTeam().Add(selectedTile);
+                        CurrentTeam().Move(SelectedTile.Value, selectedTile);
 
                         ActivePhase = Phase.Shoot;
 

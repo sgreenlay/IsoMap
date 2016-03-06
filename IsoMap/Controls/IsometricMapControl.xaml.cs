@@ -69,7 +69,7 @@ namespace IsoMap.Controls
             internal static string randName()
             {
                 string name = "";
-                for (var x=0; x<3; ++x)
+                for (var x = 0; x < 3; ++x)
                 {
                     name += randSyl();
                 }
@@ -178,7 +178,7 @@ namespace IsoMap.Controls
 
             TileOffset = new Vector2(0.0f, 0.0f);
             ScreenOffset = new Vector2(0.0f, 0.0f);
-            
+
             MapCanvas.PointerMoved += OnPointerMoved;
             MapCanvas.PointerPressed += OnPointerPressed;
 
@@ -648,7 +648,7 @@ namespace IsoMap.Controls
                         path.BeginFigure(new Vector2(
                             topLeft.X + 0.5f * (float)TileSize.Width,
                             topLeft.Y));
-                        
+
                         path.AddLine(new Vector2(
                             bottomRight.X,
                             topLeft.Y + 0.25f * (float)TileSize.Height));
@@ -667,7 +667,7 @@ namespace IsoMap.Controls
 
                         path.EndFigure(CanvasFigureLoop.Closed);
                     }
-                    
+
                     var tile = onscreenTile + TileOffset;
                     var geometry = CanvasGeometry.CreatePath(path);
 

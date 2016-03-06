@@ -97,7 +97,11 @@ namespace IsoMap.Controls
         }
         private Vector2 TerrainXYToWorld(IntVector2 pos)
         {
-            return new Vector2(pos.X, pos.Y) + TerrainTopLeft;
+            return TerrainXYToWorld(pos.X, pos.Y);
+        }
+        private Vector2 TerrainXYToWorld(int x, int y)
+        {
+            return new Vector2(x, y) + TerrainTopLeft;
         }
         private bool ValidTerrainXY(IntVector2 v) { return ValidTerrainXY(v.X, v.Y); }
         private bool ValidTerrainXY(int x, int y) { return (x >= 0 && x < TerrainSize.X) && (y >= 0 && y < TerrainSize.Y); }
@@ -234,7 +238,55 @@ namespace IsoMap.Controls
             }
             else if (ActivePhase == Phase.Shoot)
             {
-                // TODO
+                var tpos = WorldToTerrainXY(sel);
+                for (var x = tpos.X + 1; x < TerrainSize.X; ++x)
+                {
+                    var idx = TerrainXYToIndex(x, tpos.Y);
+                    var ttype = Terrain[idx];
+                    if (ttype == TerrainType.Solid)
+                        break;
+                    if (CurrentTeam().Contains(TerrainXYToWorld(x, tpos.Y)))
+                        continue;
+                    MovableOverlay.Set(idx, true);
+                    if (ttype == TerrainType.Soft)
+                        break;
+                }
+                for (var x = tpos.X - 1; x >= 0; --x)
+                {
+                    var idx = TerrainXYToIndex(x, tpos.Y);
+                    var ttype = Terrain[idx];
+                    if (ttype == TerrainType.Solid)
+                        break;
+                    if (CurrentTeam().Contains(TerrainXYToWorld(x, tpos.Y)))
+                        continue;
+                    MovableOverlay.Set(idx, true);
+                    if (ttype == TerrainType.Soft)
+                        break;
+                }
+                for (var y = tpos.Y + 1; y < TerrainSize.Y; ++y)
+                {
+                    var idx = TerrainXYToIndex(tpos.X, y);
+                    var ttype = Terrain[idx];
+                    if (ttype == TerrainType.Solid)
+                        break;
+                    if (CurrentTeam().Contains(TerrainXYToWorld(tpos.X, y)))
+                        continue;
+                    MovableOverlay.Set(idx, true);
+                    if (ttype == TerrainType.Soft)
+                        break;
+                }
+                for (var y = tpos.Y - 1; y >= 0; --y)
+                {
+                    var idx = TerrainXYToIndex(tpos.X, y);
+                    var ttype = Terrain[idx];
+                    if (ttype == TerrainType.Solid)
+                        break;
+                    if (CurrentTeam().Contains(TerrainXYToWorld(tpos.X, y)))
+                        continue;
+                    MovableOverlay.Set(idx, true);
+                    if (ttype == TerrainType.Soft)
+                        break;
+                }
             }
         }
 
@@ -585,7 +637,7 @@ namespace IsoMap.Controls
                         args.DrawingSession.FillGeometry(geometry, Colors.DarkSlateGray);
                         args.DrawingSession.DrawGeometry(geometry, Colors.Black);
                     }
-                    else if (SelectedTile != null && ActivePhase == Phase.Move && MovableOverlay.Get(TerrainXYToIndex(terrainxy)))
+                    else if (SelectedTile != null && MovableOverlay.Get(TerrainXYToIndex(terrainxy)))
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.GreenYellow);
                         args.DrawingSession.DrawGeometry(geometry, Colors.Black);

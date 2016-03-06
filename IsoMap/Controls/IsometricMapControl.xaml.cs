@@ -49,11 +49,11 @@ namespace IsoMap.Controls
             public List<string> Names = new List<string>();
 
             private static List<string> Syllables = new List<string>(){
-                "ka","sa","ta","na","ha","ma","ya","ra","wa",
-                "ke","se","te","ne","he","me",/* */"re","we",
-                "ki","si","chi","ni","hi","mi",/* */"ri","wi",
-                "ko","so","to","no","ho","mo","yo","ro","wo",
-                "ku","su","tsu","nu","hu","mu","yu","ru",
+                "ga","ka","sa","ta","na","ha","ma","ya","ra","wa",
+                "ge","ke","se","te","ne","he","me",/* */"re",/* */
+                "gi","ki","si","chi","ni","hi","mi",/* */"ri",/* */
+                "go","ko","so","to","no","ho","mo","yo","ro","wo",
+                "gu","ku","su","tsu","nu","hu","mu","yu","ru",
             };
             private static Random rand = new Random();
             private static string randSyl()
@@ -68,9 +68,11 @@ namespace IsoMap.Controls
 
             internal static string randName()
             {
-                string name = randSyl();
-                while (rand.NextDouble() > 0.20)
+                string name = "";
+                for (var x=0; x<3; ++x)
+                {
                     name += randSyl();
+                }
                 name = char.ToUpper(name[0]) + name.Substring(1);
                 return name;
             }

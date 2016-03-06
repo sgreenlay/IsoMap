@@ -45,6 +45,7 @@ namespace IsoMap.Controls
         private class Units
         {
             public List<Vector2> Locations = new List<Vector2>();
+            public List<string> Names = new List<string>();
 
             internal bool Contains(Vector2 pos)
             {
@@ -54,18 +55,23 @@ namespace IsoMap.Controls
             internal void Add(Vector2 pos)
             {
                 Locations.Add(pos);
+                Names.Add("unnamed");
             }
 
             internal void Remove(Vector2 selectedTile)
             {
-                Locations.Remove(selectedTile);
+                var idx = Locations.IndexOf(selectedTile);
+                Locations.RemoveAt(idx);
+                Names.RemoveAt(idx);
             }
-        };
-        private Units TeamA = new Units();
-        private CanvasBitmap TeamABitmap { get; set; }
+            internal CanvasBitmap Bitmap { get; set; }
+            internal int offset;
 
+            internal int Count { get { return Locations.Count; } }
+        };
+
+        private Units TeamA = new Units();
         private Units TeamB = new Units();
-        private CanvasBitmap TeamBBitmap { get; set; }
 
         private Task LoadingAssetsTask;
         private Random Rand = new Random();
@@ -193,11 +199,13 @@ namespace IsoMap.Controls
 
         private async Task LoadAssets()
         {
-            TeamABitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Rock.png");
-            Debug.Assert(TeamABitmap != null);
+            TeamA.Bitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Rock.png");
+            TeamA.offset = -40;
+            Debug.Assert(TeamA.Bitmap != null);
 
-            TeamBBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Heart.png");
-            Debug.Assert(TeamBBitmap != null);
+            TeamB.Bitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Heart.png");
+            TeamB.offset = -25;
+            Debug.Assert(TeamB.Bitmap != null);
         }
 
         private void OnPointerMoved(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -679,30 +687,24 @@ namespace IsoMap.Controls
                     }
                 }
             }
-            
-            foreach (var unit in TeamA.Locations)
+
+            Action<Units> func = (Units team) =>
             {
-                var onscreenUnit = unit - TileOffset;
+                for (var i = 0; i < team.Count; ++i)
+                {
+                    var unit = team.Locations[i];
+                    var onscreenUnit = unit - TileOffset;
 
-                var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
-                pos = pos - TeamABitmap.Size.ToVector2() / 2.0f;
+                    var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
+                    pos = pos - team.Bitmap.Size.ToVector2() / 2.0f;
 
-                pos.Y -= 40;
+                    pos.Y += team.offset;
 
-                args.DrawingSession.DrawImage(TeamABitmap, pos);
-            }
-
-            foreach (var unit in TeamB.Locations)
-            {
-                var onscreenUnit = unit - TileOffset;
-
-                var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
-                pos = pos - TeamBBitmap.Size.ToVector2() / 2.0f;
-
-                pos.Y -= 25;
-
-                args.DrawingSession.DrawImage(TeamBBitmap, pos);
-            }
+                    args.DrawingSession.DrawImage(team.Bitmap, pos);
+                }
+            };
+            func(TeamA);
+            func(TeamB);
         }
     }
 }

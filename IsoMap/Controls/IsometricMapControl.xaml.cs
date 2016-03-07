@@ -43,6 +43,10 @@ namespace IsoMap.Controls
 
         private Team ActiveTeam;
 
+        private CanvasBitmap TreeTallBitmap;
+        private CanvasBitmap TreeShortBitmap;
+        private CanvasBitmap RockBitmap;
+
         private class Units
         {
             public List<Vector2> Locations = new List<Vector2>();
@@ -279,13 +283,17 @@ namespace IsoMap.Controls
 
         private async Task LoadAssets()
         {
-            TeamA.Bitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Rock.png");
-            TeamA.offset = -40;
+            TeamA.Bitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Character Boy.png");
+            TeamA.offset = -35;
             Debug.Assert(TeamA.Bitmap != null);
 
-            TeamB.Bitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Heart.png");
-            TeamB.offset = -25;
+            TeamB.Bitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Enemy Bug.png");
+            TeamB.offset = -35;
             Debug.Assert(TeamB.Bitmap != null);
+
+            TreeTallBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Tree Tall.png");
+            TreeShortBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Tree Short.png");
+            RockBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Rock.png");
         }
 
         private void OnPointerMoved(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -737,19 +745,25 @@ namespace IsoMap.Controls
                     }
                     else
                     {
+                        args.DrawingSession.FillGeometry(geometry, Colors.LightGreen);
+                    }
+
+                    if (ValidTerrainXY(terrainxy))
+                    {
+                        var pos = MapToScreen(tile + new Vector2(0.5f, 0.5f));
+                        pos += new Vector2(-50f, -140f);
                         switch (Terrain[TerrainXYToIndex(terrainxy)])
                         {
                             case TerrainType.Empty:
-                                args.DrawingSession.FillGeometry(geometry, Colors.Khaki);
                                 break;
                             case TerrainType.Soft:
-                                args.DrawingSession.FillGeometry(geometry, Colors.WhiteSmoke);
+                                args.DrawingSession.DrawImage(TreeShortBitmap, pos);
                                 break;
                             case TerrainType.Solid:
-                                args.DrawingSession.FillGeometry(geometry, Colors.Gray);
+                                args.DrawingSession.DrawImage(RockBitmap, pos);
                                 break;
                             case TerrainType.Transparent:
-                                args.DrawingSession.FillGeometry(geometry, Colors.Blue);
+                                args.DrawingSession.DrawImage(TreeTallBitmap, pos);
                                 break;
                         }
                         args.DrawingSession.DrawGeometry(geometry, Colors.Black);

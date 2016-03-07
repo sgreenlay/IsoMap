@@ -144,6 +144,7 @@ namespace IsoMap.Controls
             Soft
         };
         private List<TerrainType> Terrain;
+        private int[] PathFindData;
         private BitArray MovableOverlay;
         private int TerrainXYToIndex(IntVector2 v)
         {
@@ -170,6 +171,44 @@ namespace IsoMap.Controls
         private bool ValidTerrainXY(IntVector2 v) { return ValidTerrainXY(v.X, v.Y); }
         private bool ValidTerrainXY(int x, int y) { return (x >= 0 && x < TerrainSize.X) && (y >= 0 && y < TerrainSize.Y); }
 
+        void ClearPathData()
+        {
+            for (int x = 0; x < PathFindData.Length; ++x) PathFindData[x] = 0;
+        }
+        void FindAllPaths(IntVector2 src, int stepsToRecurse)
+        {
+            Debug.Assert(stepsToRecurse > 0);
+            if (!ValidTerrainXY(src))
+                return;
+            var idx = TerrainXYToIndex(src);
+
+            var ttype = Terrain[idx];
+            if (ttype == TerrainType.Solid || ttype == TerrainType.Transparent)
+                return;
+            var wpos2 = TerrainXYToWorld(src);
+            if (CurrentTeam().Contains(wpos2) || EnemyTeam().Contains(wpos2))
+                return;
+
+            if (PathFindData[idx] >= stepsToRecurse)
+                return;
+            PathFindData[idx] = stepsToRecurse;
+
+            if (stepsToRecurse == 1)
+                return;
+
+            FindAllPaths(src + new IntVector2(1, 0), stepsToRecurse - 1);
+            FindAllPaths(src + new IntVector2(-1, 0), stepsToRecurse - 1);
+            FindAllPaths(src + new IntVector2(0, 1), stepsToRecurse - 1);
+            FindAllPaths(src + new IntVector2(0, -1), stepsToRecurse - 1);
+        }
+        void CopyPathDataToMovableOverlay()
+        {
+            for (int i = 0; i < TerrainSize.X * TerrainSize.Y; ++i)
+            {
+                MovableOverlay[i] = PathFindData[i] > 0;
+            }
+        }
+
         public IsometricMapControl()
         {
             InitializeComponent();
@@ -192,6 +231,8 @@ namespace IsoMap.Controls
 
             Terrain = new List<TerrainType>();
             MovableOverlay = new BitArray(TerrainSize.X * TerrainSize.Y);
+            PathFindData = new int[TerrainSize.X * TerrainSize.Y];
+            ClearPathData();
             for (var y = 0; y < TerrainSize.Y; ++y)
             {
                 for (var x = 0; x < TerrainSize.X; ++x)
@@ -279,29 +320,19 @@ namespace IsoMap.Controls
         private void SetSelection(Vector2 sel)
         {
             SelectedTile = sel;
-            MovableOverlay.SetAll(false);
             if (ActivePhase == Phase.Move)
             {
+                ClearPathData();
                 var tpos = WorldToTerrainXY(sel);
-                for (var y = -1; y < 2; ++y)
-                {
-                    for (var x = -1; x < 2; ++x)
-                    {
-                        var tpos2 = tpos + new IntVector2(x, y);
-                        if (!ValidTerrainXY(tpos2))
-                            continue;
-                        var ttype = Terrain[TerrainXYToIndex(tpos2)];
-                        if (ttype == TerrainType.Solid || ttype == TerrainType.Transparent)
-                            continue;
-                        var wpos2 = TerrainXYToWorld(tpos2);
-                        if (CurrentTeam().Contains(wpos2))
-                            continue;
-                        MovableOverlay.Set(TerrainXYToIndex(tpos2), true);
-                    }
-                }
+                FindAllPaths(tpos + new IntVector2(1, 0), 3);
+                FindAllPaths(tpos + new IntVector2(-1, 0), 3);
+                FindAllPaths(tpos + new IntVector2(0, 1), 3);
+                FindAllPaths(tpos + new IntVector2(0, -1), 3);
+                CopyPathDataToMovableOverlay();
             }
             else if (ActivePhase == Phase.Shoot)
             {
+                MovableOverlay.SetAll(false);
                 var tpos = WorldToTerrainXY(sel);
                 for (var x = tpos.X + 1; x < TerrainSize.X; ++x)
                 {

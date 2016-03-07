@@ -47,6 +47,8 @@ namespace IsoMap.Controls
         {
             public List<Vector2> Locations = new List<Vector2>();
             public List<string> Names = new List<string>();
+            public List<int> Healths = new List<int>();
+            public List<int> MaxHealths = new List<int>();
 
             private static List<string> Syllables = new List<string>(){
                 "ga","ka","sa","ta","na","ha","ma","ya","ra","wa",
@@ -81,6 +83,8 @@ namespace IsoMap.Controls
             {
                 Locations.Add(pos);
                 Names.Add(randName());
+                Healths.Add(5);
+                MaxHealths.Add(5);
             }
 
             internal void Remove(Vector2 selectedTile)
@@ -88,6 +92,8 @@ namespace IsoMap.Controls
                 var idx = Locations.IndexOf(selectedTile);
                 Locations.RemoveAt(idx);
                 Names.RemoveAt(idx);
+                Healths.RemoveAt(idx);
+                MaxHealths.RemoveAt(idx);
             }
             internal CanvasBitmap Bitmap { get; set; }
             internal int offset;
@@ -742,7 +748,11 @@ namespace IsoMap.Controls
 
                     var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
                     pos += new Vector2(-20, -80);
+                    var hppos = pos + new Vector2(0, 30);
                     args.DrawingSession.DrawText(team.Names[i], pos, Colors.Black);
+                    float pct = team.Healths[i] / team.MaxHealths[i];
+                    args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, 100, 5), Colors.DarkRed);
+                    args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, pct * 100, 5), Colors.Green);
                 }
             };
             func(TeamA);

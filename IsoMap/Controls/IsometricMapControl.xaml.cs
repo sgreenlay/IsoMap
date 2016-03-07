@@ -202,7 +202,7 @@ namespace IsoMap.Controls
                 }
             }
 
-            for (var x = 0; x < 5; ++x)
+            while (TeamA.Count < 4)
             {
                 var tpos = new IntVector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
                 if (Terrain[TerrainXYToIndex(tpos)] != TerrainType.Empty)
@@ -213,7 +213,7 @@ namespace IsoMap.Controls
                 TeamA.Add(pos);
             }
 
-            for (var x = 0; x < 5; ++x)
+            while (TeamB.Count < 4)
             {
                 var tpos = new IntVector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
                 if (Terrain[TerrainXYToIndex(tpos)] != TerrainType.Empty)

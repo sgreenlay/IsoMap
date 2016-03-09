@@ -803,6 +803,8 @@ namespace IsoMap.Controls
 
                     if (ValidTerrainXY(terrainxy))
                     {
+                        args.DrawingSession.DrawGeometry(geometry, Colors.Black);
+
                         var pos = MapToScreen(tile + new Vector2(0.5f, 0.5f));
                         pos += new Vector2(-50f, -140f);
                         switch (Terrain[TerrainXYToIndex(terrainxy)])
@@ -819,7 +821,6 @@ namespace IsoMap.Controls
                                 args.DrawingSession.DrawImage(TreeTallBitmap, pos);
                                 break;
                         }
-                        args.DrawingSession.DrawGeometry(geometry, Colors.Black);
                     }
                 }
             }

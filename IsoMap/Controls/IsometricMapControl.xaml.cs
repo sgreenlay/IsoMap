@@ -50,7 +50,7 @@ namespace IsoMap.Controls
 
         private class Units
         {
-            public List<Vector2> Locations = new List<Vector2>();
+            public List<IntVector2> Positions = new List<IntVector2>();
             public List<string> Names = new List<string>();
             public List<int> Healths = new List<int>();
             public List<int> MaxHealths = new List<int>();
@@ -62,15 +62,15 @@ namespace IsoMap.Controls
                 "go","ko","so","to","no","ho","mo","yo","ro","wo",
                 "gu","ku","su","tsu","nu","hu","mu","yu","ru",
             };
-            private static Random rand = new Random();
+            private static Random Rand = new Random();
             private static string randSyl()
             {
-                return Syllables[rand.Next(Syllables.Count)];
+                return Syllables[Rand.Next(Syllables.Count)];
             }
 
-            internal bool Contains(Vector2 pos)
+            internal bool Contains(IntVector2 pos)
             {
-                return Locations.Contains(pos);
+                return Positions.Contains(pos);
             }
 
             internal static string randName()
@@ -84,18 +84,18 @@ namespace IsoMap.Controls
                 return name;
             }
 
-            internal void Add(Vector2 pos)
+            internal void Add(IntVector2 pos)
             {
-                Locations.Add(pos);
+                Positions.Add(pos);
                 Names.Add(randName());
                 Healths.Add(5);
                 MaxHealths.Add(5);
             }
 
-            internal void Remove(Vector2 selectedTile)
+            internal void Remove(IntVector2 selectedTile)
             {
-                var idx = Locations.IndexOf(selectedTile);
-                Locations.RemoveAt(idx);
+                var idx = Positions.IndexOf(selectedTile);
+                Positions.RemoveAt(idx);
                 Names.RemoveAt(idx);
                 Healths.RemoveAt(idx);
                 MaxHealths.RemoveAt(idx);
@@ -103,14 +103,14 @@ namespace IsoMap.Controls
             internal CanvasBitmap Bitmap { get; set; }
             internal int offset;
 
-            internal int Count { get { return Locations.Count; } }
+            internal int Count { get { return Positions.Count; } }
 
-            internal void Move(Vector2 value, Vector2 selectedTile)
+            internal void Move(IntVector2 source, IntVector2 destination)
             {
-                var idx = Locations.IndexOf(value);
+                var idx = Positions.IndexOf(source);
                 if (idx == -1)
                     throw new ArgumentException();
-                Locations[idx] = selectedTile;
+                Positions[idx] = destination;
             }
         };
 
@@ -194,8 +194,7 @@ namespace IsoMap.Controls
             var ttype = Terrain[idx];
             if (ttype == TerrainType.Solid || ttype == TerrainType.Transparent)
                 return;
-            var wpos2 = TerrainXYToWorld(src);
-            if (CurrentTeam().Contains(wpos2))
+            if (CurrentTeam().Contains(src))
                 return;
 
             if (PathFindData[idx] >= stepsToRecurse)
@@ -263,10 +262,9 @@ namespace IsoMap.Controls
                 var tpos = new IntVector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
                 if (Terrain[TerrainXYToIndex(tpos)] != TerrainType.Empty)
                     continue;
-                var pos = TerrainXYToWorld(tpos);
-                if (TeamA.Contains(pos))
+                if (TeamA.Contains(tpos))
                     continue;
-                TeamA.Add(pos);
+                TeamA.Add(tpos);
             }
 
             while (TeamB.Count < 4)
@@ -274,12 +272,11 @@ namespace IsoMap.Controls
                 var tpos = new IntVector2(Rand.Next(TerrainSize.X), Rand.Next(TerrainSize.Y));
                 if (Terrain[TerrainXYToIndex(tpos)] != TerrainType.Empty)
                     continue;
-                var pos = TerrainXYToWorld(tpos);
-                if (TeamA.Contains(pos))
+                if (TeamA.Contains(tpos))
                     continue;
-                if (TeamB.Contains(pos))
+                if (TeamB.Contains(tpos))
                     continue;
-                TeamB.Add(pos);
+                TeamB.Add(tpos);
             }
 
             ActiveTeam = Team.TeamA;
@@ -356,7 +353,7 @@ namespace IsoMap.Controls
                     var ttype = Terrain[idx];
                     if (ttype == TerrainType.Solid)
                         break;
-                    if (CurrentTeam().Contains(TerrainXYToWorld(x, tpos.Y)))
+                    if (CurrentTeam().Contains(new IntVector2(x, tpos.Y)))
                         continue;
                     MovableOverlay.Set(idx, true);
                     if (ttype == TerrainType.Soft)
@@ -368,7 +365,7 @@ namespace IsoMap.Controls
                     var ttype = Terrain[idx];
                     if (ttype == TerrainType.Solid)
                         break;
-                    if (CurrentTeam().Contains(TerrainXYToWorld(x, tpos.Y)))
+                    if (CurrentTeam().Contains(new IntVector2(x, tpos.Y)))
                         continue;
                     MovableOverlay.Set(idx, true);
                     if (ttype == TerrainType.Soft)
@@ -380,7 +377,7 @@ namespace IsoMap.Controls
                     var ttype = Terrain[idx];
                     if (ttype == TerrainType.Solid)
                         break;
-                    if (CurrentTeam().Contains(TerrainXYToWorld(tpos.X, y)))
+                    if (CurrentTeam().Contains(new IntVector2(tpos.X, y)))
                         continue;
                     MovableOverlay.Set(idx, true);
                     if (ttype == TerrainType.Soft)
@@ -392,7 +389,7 @@ namespace IsoMap.Controls
                     var ttype = Terrain[idx];
                     if (ttype == TerrainType.Solid)
                         break;
-                    if (CurrentTeam().Contains(TerrainXYToWorld(tpos.X, y)))
+                    if (CurrentTeam().Contains(new IntVector2(tpos.X, y)))
                         continue;
                     MovableOverlay.Set(idx, true);
                     if (ttype == TerrainType.Soft)
@@ -408,6 +405,7 @@ namespace IsoMap.Controls
             var selectedTile = ScreenToMap(
                 new Vector2((float)currentPoint.Position.X,
                             (float)currentPoint.Position.Y));
+            var selectedXY = WorldToTerrainXY(selectedTile);
 
             if (currentPoint.Properties.IsLeftButtonPressed)
             {
@@ -415,7 +413,7 @@ namespace IsoMap.Controls
                 {
                     ClearSelection();
 
-                    if (CurrentTeam().Contains(selectedTile))
+                    if (CurrentTeam().Contains(selectedXY))
                     {
                         SetSelection(selectedTile);
                     }
@@ -425,13 +423,12 @@ namespace IsoMap.Controls
             {
                 if (ActivePhase == Phase.Move)
                 {
-                    var terxy = WorldToTerrainXY(selectedTile);
-                    if (SelectedTile != null && ValidTerrainXY(terxy) && MovableOverlay.Get(TerrainXYToIndex(terxy)))
+                    if (SelectedTile != null && ValidTerrainXY(selectedXY) && MovableOverlay.Get(TerrainXYToIndex(selectedXY)))
                     {
-                        if (EnemyTeam().Contains(selectedTile))
-                            EnemyTeam().Remove(selectedTile);
+                        if (EnemyTeam().Contains(selectedXY))
+                            EnemyTeam().Remove(selectedXY);
 
-                        CurrentTeam().Move(SelectedTile.Value, selectedTile);
+                        CurrentTeam().Move(WorldToTerrainXY(SelectedTile.Value), selectedXY);
 
                         ActivePhase = Phase.Shoot;
 
@@ -441,16 +438,10 @@ namespace IsoMap.Controls
                 else if (ActivePhase == Phase.Shoot)
                 {
                     Debug.Assert(SelectedTile != null);
-                    var terxy = WorldToTerrainXY(selectedTile);
-                    if (ValidTerrainXY(terxy) && MovableOverlay.Get(TerrainXYToIndex(terxy)))
+                    if (ValidTerrainXY(selectedXY) && MovableOverlay.Get(TerrainXYToIndex(selectedXY)))
                     {
-                        if (EnemyTeam().Contains(selectedTile))
-                            EnemyTeam().Remove(selectedTile);
-
-                        //if (ActiveTeam == Team.TeamA)
-                        //    ActiveTeam = Team.TeamB;
-                        //else
-                        //    ActiveTeam = Team.TeamA;
+                        if (EnemyTeam().Contains(selectedXY))
+                            EnemyTeam().Remove(selectedXY);
 
                         ClearSelection();
                         ActivePhase = Phase.Move;
@@ -652,9 +643,12 @@ namespace IsoMap.Controls
         {
             Debug.Assert(ActivePhase == Phase.Move);
 
+            if (CurrentTeam().Count == 0)
+                return;
+
             var idx = Rand.Next(CurrentTeam().Count);
             ClearPathData();
-            var tpos = WorldToTerrainXY(CurrentTeam().Locations[idx]);
+            var tpos = CurrentTeam().Positions[idx];
             FindAllPaths(tpos + new IntVector2(1, 0), 4);
             FindAllPaths(tpos + new IntVector2(-1, 0), 4);
             FindAllPaths(tpos + new IntVector2(0, 1), 4);
@@ -663,17 +657,17 @@ namespace IsoMap.Controls
 
             for (var i = 0; i < EnemyTeam().Count; ++i)
             {
-                var epos = EnemyTeam().Locations[i];
-                var eidx = TerrainXYToIndex(WorldToTerrainXY(epos));
+                var epos = EnemyTeam().Positions[i];
+                var eidx = TerrainXYToIndex(epos);
                 if (MovableOverlay.Get(eidx))
                 {
                     EnemyTeam().Remove(epos);
-                    CurrentTeam().Move(TerrainXYToWorld(tpos), epos);
+                    CurrentTeam().Move(tpos, epos);
                     return;
                 }
             }
 
-            // No enemies in range. Move randomly. First count the bits.
+            // No enemies in range. Move randomly. Accumulate a list of all indexes.
             List<int> indexes = new List<int>();
             for (var i = 0; i < MovableOverlay.Length; ++i)
             {
@@ -685,10 +679,10 @@ namespace IsoMap.Controls
                 // no valid squares for movement
                 return;
             }
-
+            // Select randomly from the list
             var tgt_idx = indexes[Rand.Next(indexes.Count)];
             var tgt_xy = IndexToTerrainXY(tgt_idx);
-            CurrentTeam().Move(CurrentTeam().Locations[idx], TerrainXYToWorld(tgt_xy));
+            CurrentTeam().Move(CurrentTeam().Positions[idx], tgt_xy);
         }
 
         void Redraw(CanvasControl canvas, CanvasDrawEventArgs args)
@@ -829,7 +823,7 @@ namespace IsoMap.Controls
             {
                 for (var i = 0; i < team.Count; ++i)
                 {
-                    var unit = team.Locations[i];
+                    var unit = TerrainXYToWorld(team.Positions[i]);
                     var onscreenUnit = unit - TileOffset;
 
                     var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
@@ -842,7 +836,7 @@ namespace IsoMap.Controls
                 }
                 for (var i = 0; i < team.Count; ++i)
                 {
-                    var unit = team.Locations[i];
+                    var unit = TerrainXYToWorld(team.Positions[i]);
                     var onscreenUnit = unit - TileOffset;
 
                     var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));

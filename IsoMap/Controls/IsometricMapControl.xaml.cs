@@ -72,6 +72,10 @@ namespace IsoMap.Controls
             {
                 return Positions.Contains(pos);
             }
+            internal int IndexOf(IntVector2 pos)
+            {
+                return Positions.IndexOf(pos);
+            }
 
             internal static string randName()
             {
@@ -88,17 +92,14 @@ namespace IsoMap.Controls
             {
                 Positions.Add(pos);
                 Names.Add(randName());
-                Healths.Add(5);
-                MaxHealths.Add(5);
+                Healths.Add(3);
+                MaxHealths.Add(3);
             }
 
             internal void Remove(IntVector2 selectedTile)
             {
                 var idx = Positions.IndexOf(selectedTile);
-                Positions.RemoveAt(idx);
-                Names.RemoveAt(idx);
-                Healths.RemoveAt(idx);
-                MaxHealths.RemoveAt(idx);
+                Remove(idx);
             }
             internal CanvasBitmap Bitmap { get; set; }
             internal int offset;
@@ -111,6 +112,20 @@ namespace IsoMap.Controls
                 if (idx == -1)
                     throw new ArgumentException();
                 Positions[idx] = destination;
+            }
+
+            internal void Damage(int idx, int v)
+            {
+                Healths[idx] -= 1;
+                if (Healths[idx] == 0)
+                    Remove(idx);
+            }
+            private void Remove(int idx)
+            {
+                Positions.RemoveAt(idx);
+                Names.RemoveAt(idx);
+                Healths.RemoveAt(idx);
+                MaxHealths.RemoveAt(idx);
             }
         };
 
@@ -443,8 +458,11 @@ namespace IsoMap.Controls
                     Debug.Assert(SelectedTile != null);
                     if (ValidTerrainXY(selectedXY) && MovableOverlay.Get(TerrainXYToIndex(selectedXY)))
                     {
-                        if (EnemyTeam().Contains(selectedXY))
-                            EnemyTeam().Remove(selectedXY);
+                        var idx = EnemyTeam().IndexOf(selectedXY);
+                        if (idx != -1)
+                        {
+                            EnemyTeam().Damage(idx, 1);
+                        }
 
                         ClearSelection();
                         ActivePhase = Phase.Move;
@@ -846,7 +864,7 @@ namespace IsoMap.Controls
                     pos += new Vector2(-20, -80);
                     var hppos = pos + new Vector2(0, 30);
                     args.DrawingSession.DrawText(team.Names[i], pos, Colors.Black);
-                    float pct = team.Healths[i] / team.MaxHealths[i];
+                    float pct = team.Healths[i] / (float)team.MaxHealths[i];
                     args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, 100, 5), Colors.DarkRed);
                     args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, pct * 100, 5), Colors.Green);
                 }

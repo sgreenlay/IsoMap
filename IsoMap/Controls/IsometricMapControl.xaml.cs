@@ -201,6 +201,9 @@ namespace IsoMap.Controls
                 return;
             PathFindData[idx] = stepsToRecurse;
 
+            if (EnemyTeam().Contains(src))
+                return;
+
             if (stepsToRecurse == 1)
                 return;
 

@@ -46,6 +46,7 @@ namespace IsoMap.Controls
         private CanvasBitmap TreeTallBitmap;
         private CanvasBitmap TreeShortBitmap;
         private CanvasBitmap RockBitmap;
+        private CanvasBitmap HeartBitmap;
 
         private class Units
         {
@@ -159,6 +160,10 @@ namespace IsoMap.Controls
             Debug.Assert(ValidTerrainXY(x, y));
             return x + y * TerrainSize.X;
         }
+        private IntVector2 IndexToTerrainXY(int idx)
+        {
+            return new IntVector2(idx % TerrainSize.X, idx / TerrainSize.X);
+        }
         private IntVector2 WorldToTerrainXY(Vector2 pos)
         {
             var pos2 = pos - TerrainTopLeft;
@@ -190,7 +195,7 @@ namespace IsoMap.Controls
             if (ttype == TerrainType.Solid || ttype == TerrainType.Transparent)
                 return;
             var wpos2 = TerrainXYToWorld(src);
-            if (CurrentTeam().Contains(wpos2) || EnemyTeam().Contains(wpos2))
+            if (CurrentTeam().Contains(wpos2))
                 return;
 
             if (PathFindData[idx] >= stepsToRecurse)
@@ -294,6 +299,9 @@ namespace IsoMap.Controls
             TreeTallBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Tree Tall.png");
             TreeShortBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Tree Short.png");
             RockBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Rock.png");
+            HeartBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Heart.png");
+
+            MapCanvas.Invalidate();
         }
 
         private void OnPointerMoved(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -439,14 +447,16 @@ namespace IsoMap.Controls
                         if (EnemyTeam().Contains(selectedTile))
                             EnemyTeam().Remove(selectedTile);
 
-                        if (ActiveTeam == Team.TeamA)
-                            ActiveTeam = Team.TeamB;
-                        else
-                            ActiveTeam = Team.TeamA;
-
-                        ActivePhase = Phase.Move;
+                        //if (ActiveTeam == Team.TeamA)
+                        //    ActiveTeam = Team.TeamB;
+                        //else
+                        //    ActiveTeam = Team.TeamA;
 
                         ClearSelection();
+                        ActivePhase = Phase.Move;
+                        ActiveTeam = Team.TeamB;
+                        AITurn();
+                        ActiveTeam = Team.TeamA;
                     }
                 }
             }
@@ -636,6 +646,49 @@ namespace IsoMap.Controls
         void ScrollMapToCenterOnTile(Vector2 absoluteTile)
         {
             // TODO
+        }
+
+        void AITurn()
+        {
+            Debug.Assert(ActivePhase == Phase.Move);
+
+            var idx = Rand.Next(CurrentTeam().Count);
+            ClearPathData();
+            var tpos = WorldToTerrainXY(CurrentTeam().Locations[idx]);
+            FindAllPaths(tpos + new IntVector2(1, 0), 4);
+            FindAllPaths(tpos + new IntVector2(-1, 0), 4);
+            FindAllPaths(tpos + new IntVector2(0, 1), 4);
+            FindAllPaths(tpos + new IntVector2(0, -1), 4);
+            CopyPathDataToMovableOverlay();
+
+            for (var i = 0; i < EnemyTeam().Count; ++i)
+            {
+                var epos = EnemyTeam().Locations[i];
+                var eidx = TerrainXYToIndex(WorldToTerrainXY(epos));
+                if (MovableOverlay.Get(eidx))
+                {
+                    EnemyTeam().Remove(epos);
+                    CurrentTeam().Move(TerrainXYToWorld(tpos), epos);
+                    return;
+                }
+            }
+
+            // No enemies in range. Move randomly. First count the bits.
+            List<int> indexes = new List<int>();
+            for (var i = 0; i < MovableOverlay.Length; ++i)
+            {
+                if (MovableOverlay[i])
+                    indexes.Add(i);
+            }
+            if (indexes.Count == 0)
+            {
+                // no valid squares for movement
+                return;
+            }
+
+            var tgt_idx = indexes[Rand.Next(indexes.Count)];
+            var tgt_xy = IndexToTerrainXY(tgt_idx);
+            CurrentTeam().Move(CurrentTeam().Locations[idx], TerrainXYToWorld(tgt_xy));
         }
 
         void Redraw(CanvasControl canvas, CanvasDrawEventArgs args)

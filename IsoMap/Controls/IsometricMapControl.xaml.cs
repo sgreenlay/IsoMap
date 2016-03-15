@@ -3,6 +3,7 @@
 
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.Geometry;
+using Microsoft.Graphics.Canvas.Text;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using System;
 using System.Collections;
@@ -163,7 +164,15 @@ namespace IsoMap.Controls
             Transparent,
             Soft
         };
+        private struct ImageAndOffset
+        {
+            IntVector2 offset;
+            CanvasBitmap image;
+        };
         private List<TerrainType> Terrain;
+        private List<CanvasBitmap> ForegroundImages;
+        private Vector2[] ForegroundOffsets;
+
         private int[] PathFindData;
         private BitArray MovableOverlay;
         private int TerrainXYToIndex(IntVector2 v)
@@ -258,6 +267,8 @@ namespace IsoMap.Controls
             Terrain = new List<TerrainType>();
             MovableOverlay = new BitArray(TerrainSize.X * TerrainSize.Y);
             PathFindData = new int[TerrainSize.X * TerrainSize.Y];
+            ForegroundImages = new List<CanvasBitmap>();
+            ForegroundOffsets = new Vector2[TerrainSize.X * TerrainSize.Y];
             ClearPathData();
             for (var y = 0; y < TerrainSize.Y; ++y)
             {
@@ -272,6 +283,8 @@ namespace IsoMap.Controls
                         Terrain.Add(TerrainType.Solid);
                     else
                         Terrain.Add(TerrainType.Transparent);
+
+                    ForegroundImages.Add(null);
                 }
             }
 
@@ -716,6 +729,26 @@ namespace IsoMap.Controls
                 throw LoadingAssetsTask.Exception;
             }
 
+            for (int i = 0; i < ForegroundImages.Count; ++i)
+            {
+                ForegroundImages[i] = null;
+            }
+
+            Action<Units> prepare_foreground_images = (Units team) =>
+            {
+                Vector2 pos = -team.Bitmap.Size.ToVector2() / 2.0f;
+                pos.Y += team.offset;
+                for (var i = 0; i < team.Count; ++i)
+                {
+                    var idx = TerrainXYToIndex(team.Positions[i]);
+                    Debug.Assert(ForegroundImages[idx] == null);
+                    ForegroundImages[idx] = team.Bitmap;
+                    ForegroundOffsets[idx] = pos;
+                }
+            };
+            prepare_foreground_images(TeamA);
+            prepare_foreground_images(TeamB);
+
             for (int y = -3; y <= (int)Math.Ceiling(canvas.ActualHeight / TileSize.Height * 2) + 1; ++y)
             {
                 for (int x = -3; x <= (int)Math.Ceiling(canvas.ActualWidth / TileSize.Width) + 1; ++x)
@@ -818,11 +851,12 @@ namespace IsoMap.Controls
 
                     if (ValidTerrainXY(terrainxy))
                     {
+                        var idx = TerrainXYToIndex(terrainxy);
                         args.DrawingSession.DrawGeometry(geometry, Colors.Black);
 
-                        var pos = MapToScreen(tile + new Vector2(0.5f, 0.5f));
-                        pos += new Vector2(-50f, -140f);
-                        switch (Terrain[TerrainXYToIndex(terrainxy)])
+                        var tpos = MapToScreen(onscreenTile + new Vector2(0.5f, 0.5f));
+                        var pos = tpos + new Vector2(-50f, -140f);
+                        switch (Terrain[idx])
                         {
                             case TerrainType.Empty:
                                 break;
@@ -836,6 +870,11 @@ namespace IsoMap.Controls
                                 args.DrawingSession.DrawImage(TreeTallBitmap, pos);
                                 break;
                         }
+
+                        if (ForegroundImages[idx] != null)
+                        {
+                            args.DrawingSession.DrawImage(ForegroundImages[idx], tpos + ForegroundOffsets[idx]);
+                        }
                     }
                 }
             }
@@ -848,22 +887,15 @@ namespace IsoMap.Controls
                     var onscreenUnit = unit - TileOffset;
 
                     var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
-                    pos = pos - team.Bitmap.Size.ToVector2() / 2.0f;
-
-                    var bpos = pos;
-                    bpos.Y += team.offset;
-
-                    args.DrawingSession.DrawImage(team.Bitmap, bpos);
-                }
-                for (var i = 0; i < team.Count; ++i)
-                {
-                    var unit = TerrainXYToWorld(team.Positions[i]);
-                    var onscreenUnit = unit - TileOffset;
-
-                    var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
                     pos += new Vector2(-20, -80);
                     var hppos = pos + new Vector2(0, 30);
-                    args.DrawingSession.DrawText(team.Names[i], pos, Colors.Black);
+
+                    var format = new CanvasTextFormat();
+                    var textLayout = new CanvasTextLayout(args.DrawingSession, team.Names[i], format, 100, 16);
+                    var textgeo = CanvasGeometry.CreateText(textLayout);
+                    //args.DrawingSession.DrawText(team.Names[i], pos, Colors.Black);
+                    args.DrawingSession.DrawGeometry(textgeo, pos, Colors.Black);
+                    args.DrawingSession.FillGeometry(textgeo, pos, Colors.LightBlue);
                     float pct = team.Healths[i] / (float)team.MaxHealths[i];
                     args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, 100, 5), Colors.DarkRed);
                     args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, pct * 100, 5), Colors.Green);

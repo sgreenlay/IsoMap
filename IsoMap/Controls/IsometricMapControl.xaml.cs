@@ -164,11 +164,6 @@ namespace IsoMap.Controls
             Transparent,
             Soft
         };
-        private struct ImageAndOffset
-        {
-            IntVector2 offset;
-            CanvasBitmap image;
-        };
         private List<TerrainType> Terrain;
         private List<CanvasBitmap> ForegroundImages;
         private Vector2[] ForegroundOffsets;

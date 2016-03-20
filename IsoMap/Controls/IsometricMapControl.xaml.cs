@@ -31,7 +31,7 @@ namespace IsoMap.Controls
         public Size TileSize { get; set; }
 
         private Vector2 HighlightedTile { get; set; }
-        private Vector2? SelectedTile { get; set; }
+        private IntVector2? SelectedTile { get; set; }
 
         private Vector2 ScreenOffset { get; set; }
         private Vector2 TileOffset { get; set; }
@@ -153,6 +153,28 @@ namespace IsoMap.Controls
             {
                 return new IntVector2(a.X + b.X, a.Y + b.Y);
             }
+            public static bool operator ==(IntVector2 a, IntVector2 b)
+            {
+                return a.X == b.X && a.Y == b.Y;
+            }
+            public static bool operator !=(IntVector2 a, IntVector2 b)
+            {
+                return a.X != b.X || a.Y != b.Y;
+            }
+
+            public override bool Equals(object obj)
+            {
+                if (obj is IntVector2)
+                {
+                    return this == (IntVector2)obj;
+                }
+                return false;
+            }
+            public override int GetHashCode()
+            {
+                var hc = ((ulong)X.GetHashCode()) << 32 | (uint)Y.GetHashCode();
+                return hc.GetHashCode();
+            }
         }
         private IntVector2 TerrainSize = new IntVector2(9, 7);
         private Vector2 TerrainTopLeft = new Vector2(4.0f, -3.0f);
@@ -170,6 +192,7 @@ namespace IsoMap.Controls
 
         private int[] PathFindData;
         private BitArray MovableOverlay;
+        private BitArray CanMovableOverlay;
         private int TerrainXYToIndex(IntVector2 v)
         {
             return TerrainXYToIndex(v.X, v.Y);
@@ -231,11 +254,11 @@ namespace IsoMap.Controls
             FindAllPaths(src + new IntVector2(0, 1), stepsToRecurse - 1);
             FindAllPaths(src + new IntVector2(0, -1), stepsToRecurse - 1);
         }
-        void CopyPathDataToMovableOverlay()
+        void CopyPathDataToOverlay(BitArray overlay)
         {
             for (int i = 0; i < TerrainSize.X * TerrainSize.Y; ++i)
             {
-                MovableOverlay[i] = PathFindData[i] > 0;
+                overlay[i] = PathFindData[i] > 0;
             }
         }
 
@@ -356,66 +379,65 @@ namespace IsoMap.Controls
             else return TeamA;
         }
 
-        private void SetSelection(Vector2 sel)
+        private void SetSelection(IntVector2 sel)
         {
             SelectedTile = sel;
             if (ActivePhase == Phase.Move)
             {
                 ClearPathData();
-                var tpos = WorldToTerrainXY(sel);
-                FindAllPaths(tpos + new IntVector2(1, 0), 3);
-                FindAllPaths(tpos + new IntVector2(-1, 0), 3);
-                FindAllPaths(tpos + new IntVector2(0, 1), 3);
-                FindAllPaths(tpos + new IntVector2(0, -1), 3);
-                CopyPathDataToMovableOverlay();
+                var tpos = sel;
+                FindAllPaths(sel + new IntVector2(1, 0), 3);
+                FindAllPaths(sel + new IntVector2(-1, 0), 3);
+                FindAllPaths(sel + new IntVector2(0, 1), 3);
+                FindAllPaths(sel + new IntVector2(0, -1), 3);
+                CopyPathDataToOverlay(MovableOverlay);
             }
             else if (ActivePhase == Phase.Shoot)
             {
                 MovableOverlay.SetAll(false);
-                var tpos = WorldToTerrainXY(sel);
-                for (var x = tpos.X + 1; x < TerrainSize.X; ++x)
+                for (var x = sel.X + 1; x < TerrainSize.X; ++x)
                 {
-                    var idx = TerrainXYToIndex(x, tpos.Y);
+                    var idx = TerrainXYToIndex(x, sel.Y);
                     var ttype = Terrain[idx];
                     if (ttype == TerrainType.Solid)
                         break;
-                    if (CurrentTeam().Contains(new IntVector2(x, tpos.Y)))
+                    if (CurrentTeam().Contains(new IntVector2(x, sel.Y)))
                         continue;
                     MovableOverlay.Set(idx, true);
                     if (ttype == TerrainType.Soft)
                         break;
                 }
-                for (var x = tpos.X - 1; x >= 0; --x)
+                for (var x = sel.X - 1; x >= 0; --x)
                 {
-                    var idx = TerrainXYToIndex(x, tpos.Y);
+                    var idx = TerrainXYToIndex(x, sel.Y);
                     var ttype = Terrain[idx];
                     if (ttype == TerrainType.Solid)
                         break;
-                    if (CurrentTeam().Contains(new IntVector2(x, tpos.Y)))
+                    if (CurrentTeam().Contains(new IntVector2(x, sel.Y)))
                         continue;
                     MovableOverlay.Set(idx, true);
                     if (ttype == TerrainType.Soft)
                         break;
                 }
-                for (var y = tpos.Y + 1; y < TerrainSize.Y; ++y)
+                for (var y = sel.Y + 1; y < TerrainSize.Y; ++y)
                 {
-                    var idx = TerrainXYToIndex(tpos.X, y);
+                    var idx = TerrainXYToIndex(sel.X, y);
                     var ttype = Terrain[idx];
                     if (ttype == TerrainType.Solid)
                         break;
-                    if (CurrentTeam().Contains(new IntVector2(tpos.X, y)))
+                    if (CurrentTeam().Contains(new IntVector2(sel.X, y)))
                         continue;
                     MovableOverlay.Set(idx, true);
                     if (ttype == TerrainType.Soft)
                         break;
                 }
-                for (var y = tpos.Y - 1; y >= 0; --y)
+                for (var y = sel.Y - 1; y >= 0; --y)
                 {
-                    var idx = TerrainXYToIndex(tpos.X, y);
+                    var idx = TerrainXYToIndex(sel.X, y);
                     var ttype = Terrain[idx];
                     if (ttype == TerrainType.Solid)
                         break;
-                    if (CurrentTeam().Contains(new IntVector2(tpos.X, y)))
+                    if (CurrentTeam().Contains(new IntVector2(sel.X, y)))
                         continue;
                     MovableOverlay.Set(idx, true);
                     if (ttype == TerrainType.Soft)
@@ -442,11 +464,11 @@ namespace IsoMap.Controls
                         if (EnemyTeam().Contains(selectedXY))
                             EnemyTeam().Remove(selectedXY);
 
-                        CurrentTeam().Move(WorldToTerrainXY(SelectedTile.Value), selectedXY);
+                        CurrentTeam().Move(SelectedTile.Value, selectedXY);
 
                         ActivePhase = Phase.Shoot;
 
-                        SetSelection(selectedTile);
+                        SetSelection(selectedXY);
                     }
                     else
                     {
@@ -454,7 +476,7 @@ namespace IsoMap.Controls
 
                         if (CurrentTeam().Contains(selectedXY))
                         {
-                            SetSelection(selectedTile);
+                            SetSelection(selectedXY);
                         }
                     }
                 }
@@ -679,7 +701,7 @@ namespace IsoMap.Controls
             FindAllPaths(tpos + new IntVector2(-1, 0), 4);
             FindAllPaths(tpos + new IntVector2(0, 1), 4);
             FindAllPaths(tpos + new IntVector2(0, -1), 4);
-            CopyPathDataToMovableOverlay();
+            CopyPathDataToOverlay(MovableOverlay);
 
             for (var i = 0; i < EnemyTeam().Count; ++i)
             {
@@ -811,12 +833,12 @@ namespace IsoMap.Controls
 
                     var terrainxy = WorldToTerrainXY(tile);
 
-                    if (tile == HighlightedTile && HighlightedTile == SelectedTile)
+                    if (tile == HighlightedTile && WorldToTerrainXY(HighlightedTile) == SelectedTile)
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.Red);
                         args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));
                     }
-                    else if (tile == SelectedTile)
+                    else if (WorldToTerrainXY(tile) == SelectedTile)
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.DarkRed);
                         args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));

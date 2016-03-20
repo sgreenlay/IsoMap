@@ -433,19 +433,7 @@ namespace IsoMap.Controls
                             (float)currentPoint.Position.Y));
             var selectedXY = WorldToTerrainXY(selectedTile);
 
-            if (currentPoint.Properties.IsLeftButtonPressed)
-            {
-                if (ActivePhase == Phase.Move)
-                {
-                    ClearSelection();
-
-                    if (CurrentTeam().Contains(selectedXY))
-                    {
-                        SetSelection(selectedTile);
-                    }
-                }
-            }
-            else if (currentPoint.Properties.IsRightButtonPressed)
+            if (currentPoint.Properties.IsLeftButtonPressed || currentPoint.Properties.IsRightButtonPressed)
             {
                 if (ActivePhase == Phase.Move)
                 {
@@ -459,6 +447,15 @@ namespace IsoMap.Controls
                         ActivePhase = Phase.Shoot;
 
                         SetSelection(selectedTile);
+                    }
+                    else
+                    {
+                        ClearSelection();
+
+                        if (CurrentTeam().Contains(selectedXY))
+                        {
+                            SetSelection(selectedTile);
+                        }
                     }
                 }
                 else if (ActivePhase == Phase.Shoot)

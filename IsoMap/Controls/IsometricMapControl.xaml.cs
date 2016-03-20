@@ -30,7 +30,7 @@ namespace IsoMap.Controls
         public MapTileShape TileShape { get; set; }
         public Size TileSize { get; set; }
 
-        private Vector2 HighlightedTile { get; set; }
+        private IntVector2 HighlightedTile { get; set; }
         private IntVector2? SelectedTile { get; set; }
 
         private Vector2 ScreenOffset { get; set; }
@@ -284,6 +284,7 @@ namespace IsoMap.Controls
 
             Terrain = new List<TerrainType>();
             MovableOverlay = new BitArray(TerrainSize.X * TerrainSize.Y);
+            CanMovableOverlay = new BitArray(TerrainSize.X * TerrainSize.Y);
             PathFindData = new int[TerrainSize.X * TerrainSize.Y];
             ForegroundImages = new List<CanvasBitmap>();
             ForegroundOffsets = new Vector2[TerrainSize.X * TerrainSize.Y];
@@ -354,9 +355,9 @@ namespace IsoMap.Controls
         {
             var currentPoint = e.GetCurrentPoint(MapCanvas);
 
-            HighlightedTile = ScreenToMap(
+            HighlightedTile = WorldToTerrainXY(ScreenToMap(
                 new Vector2((float)currentPoint.Position.X,
-                            (float)currentPoint.Position.Y));
+                            (float)currentPoint.Position.Y)));
 
             MapCanvas.Invalidate();
 
@@ -833,7 +834,7 @@ namespace IsoMap.Controls
 
                     var terrainxy = WorldToTerrainXY(tile);
 
-                    if (tile == HighlightedTile && WorldToTerrainXY(HighlightedTile) == SelectedTile)
+                    if (terrainxy == HighlightedTile && HighlightedTile == SelectedTile)
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.Red);
                         args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));
@@ -843,7 +844,7 @@ namespace IsoMap.Controls
                         args.DrawingSession.FillGeometry(geometry, Colors.DarkRed);
                         args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));
                     }
-                    else if (tile == HighlightedTile)
+                    else if (terrainxy == HighlightedTile)
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.CornflowerBlue);
                         args.DrawingSession.DrawGeometry(geometry, Color.FromArgb(255, 40, 40, 40));

@@ -40,6 +40,9 @@ namespace IsoMap.Controls
         private CanvasBitmap RockBitmap;
         private CanvasBitmap HeartBitmap;
 
+        private CanvasBitmap NoVisionBitmap;
+        private CanvasBitmap NoMovementBitmap;
+
         private Task LoadingAssetsTask;
 
         private Vector2 TerrainTopLeft = new Vector2(4.0f, -3.0f);
@@ -101,6 +104,9 @@ namespace IsoMap.Controls
             TreeShortBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Tree Short.png");
             RockBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Rock.png");
             HeartBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Heart.png");
+
+            NoVisionBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/no_vision.png");
+            NoMovementBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/no_movement.png");
 
             MapCanvas.Invalidate();
         }
@@ -547,7 +553,7 @@ namespace IsoMap.Controls
                     {
                         args.DrawingSession.DrawGeometry(geometry, Colors.Black);
 
-                        var pos = MapToScreen(tile + new Vector2(0.5f, 0.5f));
+                        var pos = MapToScreen(onscreenTile + new Vector2(0.5f, 0.5f));
                         pos += new Vector2(-50f, -140f);
                         switch (gamedata.Terrain[gamedata.TerrainSize.XYToIndex(terrainxy)])
                         {
@@ -555,12 +561,16 @@ namespace IsoMap.Controls
                                 break;
                             case GameData.TerrainType.Soft:
                                 args.DrawingSession.DrawImage(TreeShortBitmap, pos);
+                                args.DrawingSession.DrawImage(NoVisionBitmap, pos + new Vector2(40f, 30f));
                                 break;
                             case GameData.TerrainType.Solid:
                                 args.DrawingSession.DrawImage(RockBitmap, pos);
+                                args.DrawingSession.DrawImage(NoVisionBitmap, pos + new Vector2(40f, 30f));
+                                args.DrawingSession.DrawImage(NoMovementBitmap, pos + new Vector2(40f, 62f));
                                 break;
                             case GameData.TerrainType.Transparent:
                                 args.DrawingSession.DrawImage(TreeTallBitmap, pos);
+                                args.DrawingSession.DrawImage(NoMovementBitmap, pos + new Vector2(40f, 30f));
                                 break;
                         }
                     }

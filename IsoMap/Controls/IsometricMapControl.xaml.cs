@@ -138,11 +138,31 @@ namespace IsoMap.Controls
         {
             var currentPoint = e.GetCurrentPoint(MapCanvas);
 
+            var old = HighlightedTile;
             HighlightedTile = WorldToTerrainXY(ScreenToMap(
                 new Vector2((float)currentPoint.Position.X,
                             (float)currentPoint.Position.Y)));
 
-            Invalidate();
+            if (HighlightedTile != old)
+            {
+                pathfinder.Clear();
+                int idx = gamedata.TeamA.IndexOf(HighlightedTile);
+                if (idx != -1)
+                {
+                    gamedata.pathfindMove(gamedata.TeamA, idx, pathfinder);
+                }
+                else
+                {
+                    idx = gamedata.TeamB.IndexOf(HighlightedTile);
+                    if (idx != -1)
+                    {
+                        gamedata.pathfindMove(gamedata.TeamB, idx, pathfinder);
+                    }
+                }
+                pathfinder.CopyPathDataOut(CanMovableOverlay);
+
+                Invalidate();
+            }
 
             e.Handled = true;
         }
@@ -158,14 +178,8 @@ namespace IsoMap.Controls
             SelectedTile = sel;
             if (gamedata.ActivePhase == GameData.Phase.Move)
             {
-                var Walkable = gamedata.FindWalkable(gamedata.CurrentTeam(), gamedata.EnemyTeam());
-
                 pathfinder.Clear();
-                var tpos = sel;
-                pathfinder.FindAllPaths(tpos + new IntVector2(1, 0), Walkable, 3);
-                pathfinder.FindAllPaths(tpos + new IntVector2(-1, 0), Walkable, 3);
-                pathfinder.FindAllPaths(tpos + new IntVector2(0, 1), Walkable, 3);
-                pathfinder.FindAllPaths(tpos + new IntVector2(0, -1), Walkable, 3);
+                gamedata.pathfindMove(gamedata.CurrentTeam(), gamedata.CurrentTeam().IndexOf(sel), pathfinder);
                 pathfinder.CopyPathDataOut(MovableOverlay);
             }
             else if (gamedata.ActivePhase == GameData.Phase.Shoot)
@@ -558,6 +572,7 @@ namespace IsoMap.Controls
                     var geometry = CanvasGeometry.CreatePath(path);
 
                     var terrainxy = WorldToTerrainXY(tile);
+                    var terrainxyidx = gamedata.TerrainSize.XYToIndex(terrainxy);
 
                     if (terrainxy == HighlightedTile && HighlightedTile == SelectedTile)
                     {
@@ -577,24 +592,26 @@ namespace IsoMap.Controls
                     else if (!gamedata.TerrainSize.ValidXY(terrainxy))
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.DarkSlateGray);
-                        args.DrawingSession.DrawGeometry(geometry, Colors.Black);
                     }
-                    else if (SelectedTile != null && MovableOverlay.Get(gamedata.TerrainSize.XYToIndex(terrainxy)))
+                    else if (SelectedTile != null && MovableOverlay.Get(terrainxyidx))
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.GreenYellow);
-                        args.DrawingSession.DrawGeometry(geometry, Colors.Black);
+                    }
+                    else if (CanMovableOverlay.Get(terrainxyidx))
+                    {
+                        args.DrawingSession.FillGeometry(geometry, Colors.LightSeaGreen);
                     }
                     else
                     {
                         args.DrawingSession.FillGeometry(geometry, Colors.LightGreen);
                     }
 
+                    args.DrawingSession.DrawGeometry(geometry, Colors.Black);
+
                     if (gamedata.TerrainSize.ValidXY(terrainxy))
                     {
-                        args.DrawingSession.DrawGeometry(geometry, Colors.Black);
-                        var idx = gamedata.TerrainSize.XYToIndex(terrainxy);
                         var pos = MapToScreen(onscreenTile + new Vector2(0.5f, 0.5f));
-                        switch (gamedata.Terrain[idx])
+                        switch (gamedata.Terrain[terrainxyidx])
                         {
                             case GameData.TerrainType.Empty:
                                 break;
@@ -608,9 +625,9 @@ namespace IsoMap.Controls
                                 args.DrawingSession.DrawImage(TreeTallBitmap, pos + new Vector2(-50f, -140f));
                                 break;
                         }
-                        if (ForegroundImages[idx] != null)
+                        if (ForegroundImages[terrainxyidx] != null)
                         {
-                            args.DrawingSession.DrawImage(ForegroundImages[idx], pos + ForegroundOffsets[idx]);
+                            args.DrawingSession.DrawImage(ForegroundImages[terrainxyidx], pos + ForegroundOffsets[terrainxyidx]);
                         }
                     }
                 }

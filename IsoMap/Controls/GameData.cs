@@ -21,7 +21,6 @@ namespace IsoMap.Controls
         }
         public int XYToIndex(int x, int y)
         {
-            Debug.Assert(ValidXY(x, y));
             return x + y * Size.X;
         }
 
@@ -235,6 +234,19 @@ namespace IsoMap.Controls
             }
 
             return ret;
+        }
+
+        internal void pathfindMove(Units team, int unit_idx, PathFinder pathfinder)
+        {
+            var Walkable = FindWalkable(team, team == TeamA ? TeamB : TeamA);
+
+            var tpos = team.Positions[unit_idx];
+            var dist = team == TeamA ? 3 : 4;
+
+            pathfinder.FindAllPaths(tpos + new IntVector2(1, 0), Walkable, dist);
+            pathfinder.FindAllPaths(tpos + new IntVector2(-1, 0), Walkable, dist);
+            pathfinder.FindAllPaths(tpos + new IntVector2(0, 1), Walkable, dist);
+            pathfinder.FindAllPaths(tpos + new IntVector2(0, -1), Walkable, dist);
         }
 
         public void PlayerShoot(IntVector2 tgt)

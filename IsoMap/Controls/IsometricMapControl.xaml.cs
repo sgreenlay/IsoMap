@@ -555,24 +555,22 @@ namespace IsoMap.Controls
 
                         var pos = MapToScreen(onscreenTile + new Vector2(0.5f, 0.5f));
                         pos += new Vector2(-50f, -140f);
-                        switch (gamedata.Terrain[gamedata.TerrainSize.XYToIndex(terrainxy)])
+                        var terrtype = gamedata.Terrain[gamedata.TerrainSize.XYToIndex(terrainxy)];
+                        switch (terrtype)
                         {
                             case GameData.TerrainType.Empty:
                                 break;
                             case GameData.TerrainType.Soft:
                                 args.DrawingSession.DrawImage(TreeShortBitmap, pos);
-                                args.DrawingSession.DrawImage(NoVisionBitmap, pos + new Vector2(40f, 30f));
                                 break;
                             case GameData.TerrainType.Solid:
                                 args.DrawingSession.DrawImage(RockBitmap, pos);
-                                args.DrawingSession.DrawImage(NoVisionBitmap, pos + new Vector2(40f, 30f));
-                                args.DrawingSession.DrawImage(NoMovementBitmap, pos + new Vector2(40f, 62f));
                                 break;
                             case GameData.TerrainType.Transparent:
                                 args.DrawingSession.DrawImage(TreeTallBitmap, pos);
-                                args.DrawingSession.DrawImage(NoMovementBitmap, pos + new Vector2(40f, 30f));
                                 break;
                         }
+
                     }
                 }
             }
@@ -608,6 +606,30 @@ namespace IsoMap.Controls
             };
             func(gamedata.TeamA);
             func(gamedata.TeamB);
+
+            IntVector2 ivHighlightedTile = new IntVector2((int)HighlightedTile.X, (int)HighlightedTile.Y);
+            if (gamedata.TerrainSize.ValidXY(ivHighlightedTile))
+            {
+                var pos = MapToScreen(HighlightedTile + new Vector2(0.5f, 0.5f));
+                pos += new Vector2(-50f, -140f);
+                var terrtype = gamedata.Terrain[gamedata.TerrainSize.XYToIndex(ivHighlightedTile)];
+
+                switch (terrtype)
+                {
+                    case GameData.TerrainType.Empty:
+                        break;
+                    case GameData.TerrainType.Soft:
+                        args.DrawingSession.DrawImage(NoVisionBitmap, pos + new Vector2(40f, 30f));
+                        break;
+                    case GameData.TerrainType.Solid:
+                        args.DrawingSession.DrawImage(NoVisionBitmap, pos + new Vector2(40f, 30f));
+                        args.DrawingSession.DrawImage(NoMovementBitmap, pos + new Vector2(40f, 62f));
+                        break;
+                    case GameData.TerrainType.Transparent:
+                        args.DrawingSession.DrawImage(NoMovementBitmap, pos + new Vector2(40f, 30f));
+                        break;
+                }
+            }
         }
     }
 }

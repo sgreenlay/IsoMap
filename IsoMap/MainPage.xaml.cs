@@ -26,5 +26,11 @@ namespace IsoMap
         {
             this.InitializeComponent();
         }
+
+        private void Button_Tapped(object sender, TappedRoutedEventArgs e)
+        {
+            MapControl.gamedata = new Controls.GameData();
+            MapControl.Invalidate();
+        }
     }
 }

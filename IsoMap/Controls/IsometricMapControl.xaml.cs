@@ -50,6 +50,17 @@ namespace IsoMap.Controls
         public GameData gamedata;
         public BitArray MovableOverlay;
         private PathFinder pathfinder;
+        struct TeamGraphics
+        {
+            public TeamGraphics(CanvasBitmap b, int o)
+            {
+                bitmap = b;
+                offset = o;
+            }
+            public CanvasBitmap bitmap;
+            public int offset;
+        }
+        private TeamGraphics[] teamgraphics = new TeamGraphics[2];
 
         private IntVector2 WorldToTerrainXY(Vector2 pos)
         {
@@ -63,6 +74,11 @@ namespace IsoMap.Controls
         private Vector2 TerrainXYToWorld(int x, int y)
         {
             return new Vector2(x, y) + TerrainTopLeft;
+        }
+
+        public void Invalidate()
+        {
+            MapCanvas.Invalidate();
         }
 
         public IsometricMapControl()
@@ -92,13 +108,13 @@ namespace IsoMap.Controls
 
         private async Task LoadAssets()
         {
-            gamedata.TeamA.Bitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Character Boy.png");
-            gamedata.TeamA.offset = -35;
-            Debug.Assert(gamedata.TeamA.Bitmap != null);
+            teamgraphics[0] = new TeamGraphics(
+                await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Character Boy.png"),
+                -35);
 
-            gamedata.TeamB.Bitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Enemy Bug.png");
-            gamedata.TeamB.offset = -35;
-            Debug.Assert(gamedata.TeamB.Bitmap != null);
+            teamgraphics[1] = new TeamGraphics(
+                await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Enemy Bug.png"),
+                -35);
 
             TreeTallBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Tree Tall.png");
             TreeShortBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/Tree Short.png");
@@ -108,7 +124,7 @@ namespace IsoMap.Controls
             NoVisionBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/no_vision.png");
             NoMovementBitmap = await CanvasBitmap.LoadAsync(MapCanvas, "Assets/Game/no_movement.png");
 
-            MapCanvas.Invalidate();
+            Invalidate();
         }
 
         private void OnPointerMoved(object sender, Windows.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -119,7 +135,7 @@ namespace IsoMap.Controls
                 new Vector2((float)currentPoint.Position.X,
                             (float)currentPoint.Position.Y));
 
-            MapCanvas.Invalidate();
+            Invalidate();
 
             e.Handled = true;
         }
@@ -575,7 +591,7 @@ namespace IsoMap.Controls
                 }
             }
 
-            Action<Units> func = (Units team) =>
+            Action<Units, CanvasBitmap, int> func = (Units team, CanvasBitmap bitmap, int offset) =>
             {
                 for (var i = 0; i < team.Count; ++i)
                 {
@@ -583,12 +599,12 @@ namespace IsoMap.Controls
                     var onscreenUnit = unit - TileOffset;
 
                     var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
-                    pos = pos - team.Bitmap.Size.ToVector2() / 2.0f;
+                    pos = pos - bitmap.Size.ToVector2() / 2.0f;
 
                     var bpos = pos;
-                    bpos.Y += team.offset;
+                    bpos.Y += offset;
 
-                    args.DrawingSession.DrawImage(team.Bitmap, bpos);
+                    args.DrawingSession.DrawImage(bitmap, bpos);
                 }
                 for (var i = 0; i < team.Count; ++i)
                 {
@@ -604,13 +620,13 @@ namespace IsoMap.Controls
                     args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, pct * 100, 5), Colors.Green);
                 }
             };
-            func(gamedata.TeamA);
-            func(gamedata.TeamB);
+            func(gamedata.TeamA, teamgraphics[0].bitmap, teamgraphics[0].offset);
+            func(gamedata.TeamB, teamgraphics[1].bitmap, teamgraphics[1].offset);
 
-            IntVector2 ivHighlightedTile = new IntVector2((int)HighlightedTile.X, (int)HighlightedTile.Y);
+            IntVector2 ivHighlightedTile = WorldToTerrainXY(HighlightedTile);
             if (gamedata.TerrainSize.ValidXY(ivHighlightedTile))
             {
-                var pos = MapToScreen(HighlightedTile + new Vector2(0.5f, 0.5f));
+                var pos = MapToScreen(HighlightedTile - TileOffset + new Vector2(0.5f, 0.5f));
                 pos += new Vector2(-50f, -140f);
                 var terrtype = gamedata.Terrain[gamedata.TerrainSize.XYToIndex(ivHighlightedTile)];
 

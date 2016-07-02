@@ -36,8 +36,6 @@ namespace IsoMap
             var idx = Positions.IndexOf(selectedTile);
             Remove(idx);
         }
-        internal CanvasBitmap Bitmap { get; set; }
-        internal int offset;
 
         internal int Count { get { return Positions.Count; } }
 

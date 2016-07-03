@@ -31,7 +31,7 @@ namespace IsoMap.Controls
         public Size TileSize { get; set; }
 
         private IntVector2 HighlightedTile { get; set; }
-        private IntVector2? SelectedTile { get; set; }
+        private Index<Units> SelectedUnit { get; set; }
 
         private Vector2 ScreenOffset { get; set; }
         private Vector2 TileOffset { get; set; }
@@ -63,6 +63,16 @@ namespace IsoMap.Controls
             }
             public CanvasBitmap bitmap;
             public int offset;
+
+            public Vector2 offset2d
+            {
+                get
+                {
+                    Vector2 pos = -bitmap.Size.ToVector2() / 2.0f;
+                    pos.Y += offset;
+                    return pos;
+                }
+            }
         }
         private TeamGraphics[] teamgraphics = new TeamGraphics[2];
 
@@ -111,6 +121,7 @@ namespace IsoMap.Controls
             ForegroundImages = new CanvasBitmap[gamedata.TerrainSize.Area()];
             ForegroundOffsets = new Vector2[gamedata.TerrainSize.Area()];
             pathfinder = new PathFinder(gamedata.TerrainSize);
+            SelectedUnit = Index<Units>.Invalid;
         }
 
         private async Task LoadAssets()
@@ -146,18 +157,10 @@ namespace IsoMap.Controls
             if (HighlightedTile != old)
             {
                 pathfinder.Clear();
-                int idx = gamedata.TeamA.IndexOf(HighlightedTile);
+                var idx = gamedata.units.IndexOfPosition(HighlightedTile);
                 if (idx != -1)
                 {
-                    gamedata.pathfindMove(gamedata.TeamA, idx, pathfinder);
-                }
-                else
-                {
-                    idx = gamedata.TeamB.IndexOf(HighlightedTile);
-                    if (idx != -1)
-                    {
-                        gamedata.pathfindMove(gamedata.TeamB, idx, pathfinder);
-                    }
+                    gamedata.pathfindMove(idx, pathfinder);
                 }
                 pathfinder.CopyPathDataOut(CanMovableOverlay);
 
@@ -169,17 +172,18 @@ namespace IsoMap.Controls
 
         private void ClearSelection()
         {
-            SelectedTile = null;
+            SelectedUnit = new Index<Units>(-1);
             MovableOverlay.SetAll(false);
         }
 
-        private void SetSelection(IntVector2 sel)
+        private void SetSelection(Index<Units> idx)
         {
-            SelectedTile = sel;
+            SelectedUnit = idx;
+            Debug.Assert(idx != -1);
             if (gamedata.ActivePhase == GameData.Phase.Move)
             {
                 pathfinder.Clear();
-                gamedata.pathfindMove(gamedata.CurrentTeam(), gamedata.CurrentTeam().IndexOf(sel), pathfinder);
+                gamedata.pathfindMove(idx, pathfinder);
                 pathfinder.CopyPathDataOut(MovableOverlay);
             }
             else if (gamedata.ActivePhase == GameData.Phase.Shoot)
@@ -188,55 +192,7 @@ namespace IsoMap.Controls
                 var TerrainSize = gamedata.TerrainSize;
 
                 MovableOverlay.SetAll(false);
-                var tpos = sel;
-                for (var x = tpos.X + 1; x < TerrainSize.Size.X; ++x)
-                {
-                    var idx = TerrainSize.XYToIndex(x, tpos.Y);
-                    var ttype = Terrain[idx];
-                    if (ttype == GameData.TerrainType.Solid)
-                        break;
-                    if (gamedata.CurrentTeam().Contains(new IntVector2(x, tpos.Y)))
-                        continue;
-                    MovableOverlay.Set(idx, true);
-                    if (ttype == GameData.TerrainType.Soft)
-                        break;
-                }
-                for (var x = sel.X - 1; x >= 0; --x)
-                {
-                    var idx = TerrainSize.XYToIndex(x, tpos.Y);
-                    var ttype = Terrain[idx];
-                    if (ttype == GameData.TerrainType.Solid)
-                        break;
-                    if (gamedata.CurrentTeam().Contains(new IntVector2(x, tpos.Y)))
-                        continue;
-                    MovableOverlay.Set(idx, true);
-                    if (ttype == GameData.TerrainType.Soft)
-                        break;
-                }
-                for (var y = tpos.Y + 1; y < TerrainSize.Size.Y; ++y)
-                {
-                    var idx = TerrainSize.XYToIndex(tpos.X, y);
-                    var ttype = Terrain[idx];
-                    if (ttype == GameData.TerrainType.Solid)
-                        break;
-                    if (gamedata.CurrentTeam().Contains(new IntVector2(tpos.X, y)))
-                        continue;
-                    MovableOverlay.Set(idx, true);
-                    if (ttype == GameData.TerrainType.Soft)
-                        break;
-                }
-                for (var y = sel.Y - 1; y >= 0; --y)
-                {
-                    var idx = TerrainSize.XYToIndex(sel.X, y);
-                    var ttype = Terrain[idx];
-                    if (ttype == GameData.TerrainType.Solid)
-                        break;
-                    if (gamedata.CurrentTeam().Contains(new IntVector2(tpos.X, y)))
-                        continue;
-                    MovableOverlay.Set(idx, true);
-                    if (ttype == GameData.TerrainType.Soft)
-                        break;
-                }
+                gamedata.pathfindShoot(idx, MovableOverlay);
             }
         }
 
@@ -253,30 +209,32 @@ namespace IsoMap.Controls
             {
                 if (gamedata.ActivePhase == GameData.Phase.Move)
                 {
-                    if (SelectedTile != null && gamedata.TerrainSize.ValidXY(selectedXY) && MovableOverlay.Get(gamedata.TerrainSize.XYToIndex(selectedXY)))
+                    if (SelectedUnit != -1 && gamedata.TerrainSize.ValidXY(selectedXY) && MovableOverlay.Get(gamedata.TerrainSize.XYToIndex(selectedXY)))
                     {
-                        if (gamedata.EnemyTeam().Contains(selectedXY))
-                            gamedata.EnemyTeam().Remove(selectedXY);
+                        var tgt = gamedata.units.IndexOfPosition(selectedXY);
+                        if (tgt != -1)
+                            gamedata.Kill(tgt);
 
-                        gamedata.CurrentTeam().Move(SelectedTile.Value, selectedXY);
+                        gamedata.Move(SelectedUnit, selectedXY);
 
                         gamedata.ActivePhase = GameData.Phase.Shoot;
 
-                        SetSelection(selectedXY);
+                        SetSelection(SelectedUnit);
                     }
                     else
                     {
                         ClearSelection();
 
-                        if (gamedata.CurrentTeam().Contains(selectedXY))
+                        var idx = gamedata.units.IndexOfPosition(selectedXY);
+                        if (idx != -1 && gamedata.units.Allegiance[idx] == gamedata.CurrentTeam())
                         {
-                            SetSelection(selectedXY);
+                            SetSelection(idx);
                         }
                     }
                 }
                 else if (gamedata.ActivePhase == GameData.Phase.Shoot)
                 {
-                    Debug.Assert(SelectedTile != null);
+                    Debug.Assert(SelectedUnit != -1);
                     if (gamedata.TerrainSize.ValidXY(selectedXY) && MovableOverlay.Get(gamedata.TerrainSize.XYToIndex(selectedXY)))
                     {
                         ClearSelection();
@@ -488,20 +446,24 @@ namespace IsoMap.Controls
                 ForegroundImages[i] = null;
             }
 
-            Action<Units, CanvasBitmap, int> prepare_foreground_images = (Units team, CanvasBitmap bitmap, int offset) =>
+            for (var i = new Index<Units>(0); i < gamedata.units.Count; ++i)
             {
-                Vector2 pos = -bitmap.Size.ToVector2() / 2.0f;
-                pos.Y += offset;
-                for (var i = 0; i < team.Count; ++i)
+                if (gamedata.units.Allegiance[i] == null)
+                    continue;
+
+                var idx = gamedata.TerrainSize.XYToIndex(gamedata.units.Positions[i]);
+                Debug.Assert(ForegroundImages[idx] == null);
+                if (gamedata.units.Allegiance[i] == gamedata.TeamA)
                 {
-                    var idx = gamedata.TerrainSize.XYToIndex(team.Positions[i]);
-                    Debug.Assert(ForegroundImages[idx] == null);
-                    ForegroundImages[idx] = bitmap;
-                    ForegroundOffsets[idx] = pos;
+                    ForegroundImages[idx] = teamgraphics[0].bitmap;
+                    ForegroundOffsets[idx] = teamgraphics[0].offset2d;
                 }
-            };
-            prepare_foreground_images(gamedata.TeamA, teamgraphics[0].bitmap, teamgraphics[0].offset);
-            prepare_foreground_images(gamedata.TeamB, teamgraphics[1].bitmap, teamgraphics[1].offset);
+                else if (gamedata.units.Allegiance[i] == gamedata.TeamB)
+                {
+                    ForegroundImages[idx] = teamgraphics[1].bitmap;
+                    ForegroundOffsets[idx] = teamgraphics[1].offset2d;
+                }
+            }
 
             for (int y = -3; y <= (int)Math.Ceiling(canvas.ActualHeight / TileSize.Height * 2) + 1; ++y)
             {
@@ -573,6 +535,7 @@ namespace IsoMap.Controls
 
                     var terrainxy = WorldToTerrainXY(tile);
                     var terrainxyidx = gamedata.TerrainSize.XYToIndex(terrainxy);
+                    var SelectedTile = SelectedUnit != -1 ? new IntVector2?(gamedata.units.Positions[SelectedUnit]) : null;
 
                     if (terrainxy == HighlightedTile && HighlightedTile == SelectedTile)
                     {
@@ -633,30 +596,27 @@ namespace IsoMap.Controls
                 }
             }
 
-            Action<Units> func = (Units team) =>
+            for (var i = new Index<Units>(0); i < gamedata.units.Count; ++i)
             {
-                for (var i = 0; i < team.Count; ++i)
-                {
-                    var unit = TerrainXYToWorld(team.Positions[i]);
-                    var onscreenUnit = unit - TileOffset;
+                if (!gamedata.units.IsValid(i))
+                    continue;
+                var unit = TerrainXYToWorld(gamedata.units.Positions[i]);
+                var onscreenUnit = unit - TileOffset;
 
-                    var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
-                    pos += new Vector2(-20, -80);
-                    var hppos = pos + new Vector2(0, 30);
+                var pos = MapToScreen(onscreenUnit + new Vector2(0.5f, 0.5f));
+                pos += new Vector2(-20, -80);
+                var hppos = pos + new Vector2(0, 30);
 
-                    var format = new CanvasTextFormat();
-                    var textLayout = new CanvasTextLayout(args.DrawingSession, team.Names[i], format, 100, 16);
-                    var textgeo = CanvasGeometry.CreateText(textLayout);
-                    //args.DrawingSession.DrawText(team.Names[i], pos, Colors.Black);
-                    args.DrawingSession.DrawGeometry(textgeo, pos, Colors.Black);
-                    args.DrawingSession.FillGeometry(textgeo, pos, Colors.LightBlue);
-                    float pct = team.Healths[i] / (float)team.MaxHealths[i];
-                    args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, 100, 5), Colors.DarkRed);
-                    args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, pct * 100, 5), Colors.Green);
-                }
-            };
-            func(gamedata.TeamA);
-            func(gamedata.TeamB);
+                var format = new CanvasTextFormat();
+                var textLayout = new CanvasTextLayout(args.DrawingSession, gamedata.units.Names[i], format, 100, 16);
+                var textgeo = CanvasGeometry.CreateText(textLayout);
+                //args.DrawingSession.DrawText(team.Names[i], pos, Colors.Black);
+                args.DrawingSession.DrawGeometry(textgeo, pos, Colors.Black);
+                args.DrawingSession.FillGeometry(textgeo, pos, Colors.LightBlue);
+                float pct = gamedata.units.Healths[i] / (float)gamedata.units.MaxHealths[i];
+                args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, 100, 5), Colors.DarkRed);
+                args.DrawingSession.FillRectangle(new Rect(hppos.X, hppos.Y, pct * 100, 5), Colors.Green);
+            }
 
             if (gamedata.TerrainSize.ValidXY(HighlightedTile))
             {

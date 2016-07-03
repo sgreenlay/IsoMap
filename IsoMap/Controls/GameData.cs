@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IsoMap.Controls
+namespace IsoMap
 {
     public struct Dimensions
     {
@@ -97,47 +97,46 @@ namespace IsoMap.Controls
         }
 
     }
+
     public class GameData
     {
         private static Random Rand = new Random();
 
-        public GameData()
+        private IntVector2 randUnitSpawn()
         {
-            Randomize();
-
-            var maxX = TerrainSize.Size.X;
-            var maxY = TerrainSize.Size.Y;
-
-            while (TeamA.Count < 4)
+            while (true)
             {
-                var tpos = new IntVector2(Rand.Next(maxX), Rand.Next(maxY));
+                var tpos = new IntVector2(Rand.Next(TerrainSize.Size.X), Rand.Next(TerrainSize.Size.Y));
+
                 if (Terrain[TerrainSize.XYToIndex(tpos)] != TerrainType.Empty)
                     continue;
 
-                if (TeamA.Contains(tpos))
+                if (units.IndexOfPosition(tpos) != -1)
                     continue;
 
-                TeamA.Add(tpos);
+                return tpos;
             }
-
-            while (TeamB.Count < 4)
-            {
-                var tpos = new IntVector2(Rand.Next(maxX), Rand.Next(maxY));
-                if (Terrain[TerrainSize.XYToIndex(tpos)] != TerrainType.Empty)
-                    continue;
-
-                if (TeamA.Contains(tpos))
-                    continue;
-                if (TeamB.Contains(tpos))
-                    continue;
-                TeamB.Add(tpos);
-            }
-
-            ActiveTeam = Team.TeamA;
-            ActivePhase = Phase.Move;
         }
 
-        public void Randomize()
+        private void InitPlayerCharacter(Index<Units> idx)
+        {
+            units.Positions[idx] = randUnitSpawn();
+            units.Names[idx] = NameGenerator.randName();
+            units.MoveSpeed[idx] = 3;
+            units.Healths[idx] = 3;
+            units.MaxHealths[idx] = 3;
+            units.Allegiance[idx] = TeamA;
+        }
+        private void InitEnemyCharacter(Index<Units> idx)
+        {
+            units.Positions[idx] = randUnitSpawn();
+            units.Names[idx] = NameGenerator.randName();
+            units.MoveSpeed[idx] = 4;
+            units.Healths[idx] = 3;
+            units.MaxHealths[idx] = 3;
+            units.Allegiance[idx] = TeamB;
+        }
+        private void RandomizeTerrain()
         {
             for (var y = 0; y < TerrainSize.Size.Y; ++y)
             {
@@ -156,6 +155,31 @@ namespace IsoMap.Controls
             }
         }
 
+        public GameData()
+        {
+            RandomizeTerrain();
+
+            var maxX = TerrainSize.Size.X;
+            var maxY = TerrainSize.Size.Y;
+
+            for (var i = 0; i < 4; ++i)
+            {
+                var idx = units.Allocate();
+                InitPlayerCharacter(idx);
+                TeamA.units.Add(idx);
+
+                var idx2 = units.Allocate();
+                InitEnemyCharacter(idx2);
+                TeamB.units.Add(idx2);
+            }
+
+            Movable = new BitArray(TerrainSize.Area());
+            ActiveTeam = Team.TeamID.TeamA;
+            ActivePhase = Phase.Move;
+        }
+
+        private BitArray Movable;
+
         void AITurn()
         {
             Debug.Assert(ActivePhase == Phase.Move);
@@ -163,25 +187,25 @@ namespace IsoMap.Controls
             if (CurrentTeam().Count == 0)
                 return;
 
-            var idx = Rand.Next(CurrentTeam().Count);
+            var team_idx = new Index<Team>(Rand.Next(CurrentTeam().Count));
+            var idx = CurrentTeam()[team_idx];
             var pathfinder = new PathFinder(TerrainSize);
-            var walkable = FindWalkable(CurrentTeam(), EnemyTeam());
-            var tpos = CurrentTeam().Positions[idx];
-            pathfinder.FindAllPaths(tpos + new IntVector2(1, 0), walkable, 4);
-            pathfinder.FindAllPaths(tpos + new IntVector2(-1, 0), walkable, 4);
-            pathfinder.FindAllPaths(tpos + new IntVector2(0, 1), walkable, 4);
-            pathfinder.FindAllPaths(tpos + new IntVector2(0, -1), walkable, 4);
-            BitArray Movable = new BitArray(TerrainSize.Area());
+
+
+            pathfindMove(idx, pathfinder);
+
             pathfinder.CopyPathDataOut(Movable);
 
-            for (var i = 0; i < EnemyTeam().Count; ++i)
+            for (var i = new Index<Team>(0); i < EnemyTeam().Count; ++i)
             {
-                var epos = EnemyTeam().Positions[i];
+                var enemy_unit_idx = EnemyTeam()[i];
+                var epos = units.Positions[enemy_unit_idx];
                 var eidx = TerrainSize.XYToIndex(epos);
                 if (Movable.Get(eidx))
                 {
-                    EnemyTeam().Remove(epos);
-                    CurrentTeam().Move(tpos, epos);
+                    units.Release(enemy_unit_idx);
+                    EnemyTeam().RemoveAt(i);
+                    units.Positions[idx] = epos;
                     return;
                 }
             }
@@ -201,13 +225,12 @@ namespace IsoMap.Controls
             // Select randomly from the list
             var tgt_idx = indexes[Rand.Next(indexes.Count)];
             var tgt_xy = TerrainSize.IndexToXY(tgt_idx);
-            CurrentTeam().Move(CurrentTeam().Positions[idx], tgt_xy);
+            units.Positions[idx] = tgt_xy;
         }
 
-        public int[] FindWalkable(Units FriendTeam, Units FoeTeam)
+        private int[] FindWalkable(Index<Units> unit_idx)
         {
-            var dims = TerrainSize;
-            int[] ret = new int[dims.Area()];
+            int[] ret = new int[TerrainSize.Area()];
             for (int x = 0; x < ret.Length; ++x)
             {
                 var ttype = Terrain[x];
@@ -222,26 +245,28 @@ namespace IsoMap.Controls
                 }
             }
 
-            for (int x = 0; x < FriendTeam.Count; ++x)
+            var team = units.Allegiance[unit_idx];
+
+            for (var x = new Index<Units>(); x < units.Count; ++x)
             {
-                var idx = dims.XYToIndex(FriendTeam.Positions[x]);
-                ret[idx] = PathFinder.WALK_TRAIT_BLOCKED;
-            }
-            for (int x = 0; x < FoeTeam.Count; ++x)
-            {
-                var idx = dims.XYToIndex(FoeTeam.Positions[x]);
-                ret[idx] = PathFinder.WALK_TRAIT_ONTO;
+                if (!units.IsValid(x))
+                    continue;
+                var idx = TerrainSize.XYToIndex(units.Positions[x]);
+                if (units.Allegiance[x] == team)
+                    ret[idx] = PathFinder.WALK_TRAIT_BLOCKED;
+                else
+                    ret[idx] = PathFinder.WALK_TRAIT_ONTO;
             }
 
             return ret;
         }
 
-        internal void pathfindMove(Units team, int unit_idx, PathFinder pathfinder)
+        internal void pathfindMove(Index<Units> unit_idx, PathFinder pathfinder)
         {
-            var Walkable = FindWalkable(team, team == TeamA ? TeamB : TeamA);
+            var Walkable = FindWalkable(unit_idx);
 
-            var tpos = team.Positions[unit_idx];
-            var dist = team == TeamA ? 3 : 4;
+            var tpos = units.Positions[unit_idx];
+            var dist = units.MoveSpeed[unit_idx];
 
             pathfinder.FindAllPaths(tpos + new IntVector2(1, 0), Walkable, dist);
             pathfinder.FindAllPaths(tpos + new IntVector2(-1, 0), Walkable, dist);
@@ -249,12 +274,54 @@ namespace IsoMap.Controls
             pathfinder.FindAllPaths(tpos + new IntVector2(0, -1), Walkable, dist);
         }
 
+        private bool canShootThroughTile(Team friendly, int x, int y, BitArray bitarray)
+        {
+            var idx = TerrainSize.XYToIndex(x, y);
+            var ttype = Terrain[idx];
+            if (ttype == GameData.TerrainType.Solid)
+                return false;
+            var other = units.IndexOfPosition(new IntVector2(x, y));
+            if (other != -1 && units.Allegiance[other] == friendly)
+                return false;
+            bitarray.Set(idx, true);
+            if (other != -1 && units.Allegiance[other] != friendly)
+                return false;
+            if (ttype == GameData.TerrainType.Soft)
+                return false;
+            return true;
+        }
+        internal void pathfindShoot(Index<Units> unit_idx, BitArray bitarray)
+        {
+            var tpos = units.Positions[unit_idx];
+            var friendly = CurrentTeam();
+            for (var x = tpos.X + 1; x < TerrainSize.Size.X; ++x)
+            {
+                if (!canShootThroughTile(friendly, x, tpos.Y, bitarray))
+                    break;
+            }
+            for (var x = tpos.X - 1; x >= 0; --x)
+            {
+                if (!canShootThroughTile(friendly, x, tpos.Y, bitarray))
+                    break;
+            }
+            for (var y = tpos.Y + 1; y < TerrainSize.Size.Y; ++y)
+            {
+                if (!canShootThroughTile(friendly, tpos.X, y, bitarray))
+                    break;
+            }
+            for (var y = tpos.Y - 1; y >= 0; --y)
+            {
+                if (!canShootThroughTile(friendly, tpos.X, y, bitarray))
+                    break;
+            }
+        }
+
         public void PlayerShoot(IntVector2 tgt)
         {
-            var idx = EnemyTeam().IndexOf(tgt);
-            if (idx != -1)
+            var idx = units.IndexOfPosition(tgt);
+            if (idx != -1 && units.Allegiance[idx] == EnemyTeam())
             {
-                EnemyTeam().Damage(idx, 1);
+                Damage(idx, 1);
             }
             EndPlayerTurn();
         }
@@ -262,9 +329,9 @@ namespace IsoMap.Controls
         public void EndPlayerTurn()
         {
             ActivePhase = Phase.Move;
-            ActiveTeam = Team.TeamB;
+            ActiveTeam = Team.TeamID.TeamB;
             AITurn();
-            ActiveTeam = Team.TeamA;
+            ActiveTeam = Team.TeamID.TeamA;
         }
 
         public enum TerrainType
@@ -275,26 +342,39 @@ namespace IsoMap.Controls
             Soft
         };
 
-        public enum Team
-        {
-            TeamA,
-            TeamB
-        };
-
         public enum Phase
         {
             Move,
             Shoot
         };
 
-        public Units CurrentTeam()
+        private void Damage(Index<Units> idx, int v)
         {
-            if (ActiveTeam == Team.TeamA) return TeamA;
+            units.Healths[idx] -= 1;
+            if (units.Healths[idx] == 0)
+            {
+                Kill(idx);
+            }
+        }
+        public void Move(Index<Units> idx, IntVector2 tgt)
+        {
+            units.Positions[idx] = tgt;
+        }
+
+        public void Kill(Index<Units> idx)
+        {
+            units.Allegiance[idx].Remove(idx);
+            units.Release(idx);
+        }
+
+        public Team CurrentTeam()
+        {
+            if (ActiveTeam == Team.TeamID.TeamA) return TeamA;
             else return TeamB;
         }
-        public Units EnemyTeam()
+        public Team EnemyTeam()
         {
-            if (ActiveTeam == Team.TeamA) return TeamB;
+            if (ActiveTeam == Team.TeamID.TeamA) return TeamB;
             else return TeamA;
         }
 
@@ -303,9 +383,10 @@ namespace IsoMap.Controls
         public Dimensions TerrainSize = new Dimensions(new IntVector2(9, 7));
         public List<TerrainType> Terrain = new List<TerrainType>();
 
-        public Units TeamA = new Units();
-        public Units TeamB = new Units();
+        public Team TeamA = new Team(Team.TeamID.TeamA);
+        public Team TeamB = new Team(Team.TeamID.TeamB);
 
-        public Team ActiveTeam = Team.TeamA;
+        private Team.TeamID ActiveTeam = Team.TeamID.TeamA;
+        public Units units = new Units();
     }
 }

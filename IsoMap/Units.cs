@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Graphics.Canvas;
+using System.Collections;
+using System.Diagnostics;
 
 namespace IsoMap
 {
@@ -12,53 +14,63 @@ namespace IsoMap
         public List<IntVector2> Positions = new List<IntVector2>();
         public List<string> Names = new List<string>();
         public List<int> Healths = new List<int>();
+        public List<int> MoveSpeed = new List<int>();
         public List<int> MaxHealths = new List<int>();
+        // Allegiance is used to indicate validity; null means "invalid unit"
+        public List<Team> Allegiance = new List<Team>();
 
-        internal bool Contains(IntVector2 pos)
-        {
-            return Positions.Contains(pos);
-        }
-        internal int IndexOf(IntVector2 pos)
-        {
-            return Positions.IndexOf(pos);
-        }
+        private Stack<Index<Units>> FreeList = new Stack<Index<Units>>();
 
-        internal void Add(IntVector2 pos)
+        public void Release(Index<Units> idx)
         {
-            Positions.Add(pos);
-            Names.Add(NameGenerator.randName());
-            Healths.Add(3);
-            MaxHealths.Add(3);
+            Allegiance[idx] = null;
+            FreeList.Push(idx);
         }
 
-        internal void Remove(IntVector2 selectedTile)
+        public Index<Units> Allocate()
         {
-            var idx = Positions.IndexOf(selectedTile);
-            Remove(idx);
+            if (FreeList.Count > 0)
+            {
+                var idx = FreeList.Pop();
+                return idx;
+            }
+            else
+            {
+                Positions.Add(new IntVector2(-1, -1));
+                Names.Add("");
+                Healths.Add(0);
+                MaxHealths.Add(0);
+                MoveSpeed.Add(0);
+                Allegiance.Add(null);
+                return new Index<Units>(Positions.Count - 1);
+            }
         }
 
-        internal int Count { get { return Positions.Count; } }
-
-        internal void Move(IntVector2 source, IntVector2 destination)
+        public void ReleaseAll()
         {
-            var idx = Positions.IndexOf(source);
-            if (idx == -1)
-                throw new ArgumentException();
-            Positions[idx] = destination;
+            FreeList.Clear();
+            for (var x = new Index<Units>(0); x < Count; ++x)
+            {
+                Allegiance[x] = null;
+                FreeList.Push(x);
+            }
         }
 
-        internal void Damage(int idx, int v)
+        public bool IsValid(Index<Units> idx)
         {
-            Healths[idx] -= 1;
-            if (Healths[idx] == 0)
-                Remove(idx);
+            return Allegiance[idx] != null;
         }
-        private void Remove(int idx)
+
+        public Index<Units> IndexOfPosition(IntVector2 pos, Index<Units> begin_idx = new Index<Units>())
         {
-            Positions.RemoveAt(idx);
-            Names.RemoveAt(idx);
-            Healths.RemoveAt(idx);
-            MaxHealths.RemoveAt(idx);
+            for (var idx = begin_idx; idx < Positions.Count; ++idx)
+            {
+                if (IsValid(idx) && Positions[idx] == pos)
+                    return idx;
+            }
+            return new Index<Units>(-1);
         }
+
+        public int Count { get { return Positions.Count; } }
     }
 }

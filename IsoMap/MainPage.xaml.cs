@@ -29,7 +29,7 @@ namespace IsoMap
 
         private void Button_Tapped(object sender, TappedRoutedEventArgs e)
         {
-            MapControl.gamedata = new Controls.GameData();
+            MapControl.gamedata = new GameData();
             MapControl.Invalidate();
         }
     }
